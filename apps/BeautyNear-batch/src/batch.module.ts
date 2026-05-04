@@ -4,8 +4,8 @@ import { BatchService } from './batch.service';
 import { ConfigModule } from "@nestjs/config"; //.env ichidagilarni import qilish imkonini beruvchi package
 import { DatabaseModule } from './database/database.module';
 import { ScheduleModule } from '@nestjs/schedule';
-import PropertySchema from 'apps/nestar-api/src/schemas/Property.model';
-import MemberSchema from 'apps/nestar-api/src/schemas/Member.model';
+import PropertySchema from 'apps/BeautyNear-api/src/schemas/Property.model';
+import MemberSchema from 'apps/BeautyNear-api/src/schemas/Member.model';
 import { MongooseModule } from '@nestjs/mongoose';
 
 @Module({
