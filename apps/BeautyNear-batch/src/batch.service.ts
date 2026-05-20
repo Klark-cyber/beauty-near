@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Member } from 'apps/BeautyNear-api/src/libs/dto/member/member';
 import { Property } from 'apps/BeautyNear-api/src/libs/dto/property/property';
 import { MemberStatus, MemberType } from 'apps/BeautyNear-api/src/libs/enums/member.enum';
-import { PropertyStatus } from 'apps/BeautyNear-api/src/libs/enums/property.enum';
+import { PropertyStatus } from 'apps/BeautyNear-api/src/libs/enums/service.enum';
 import { Model } from 'mongoose';
 
 @Injectable()
@@ -11,7 +11,7 @@ export class BatchService {
   constructor(
     @InjectModel('Property') private readonly propertyModel: Model<Property>,
     @InjectModel('Member') private readonly memberModel: Model<Member>,
-  ) {}
+  ) { }
 
   public async batchRollback(): Promise<void> { //bu JobSchedule batchTopProperties va batchTopAgents dan oldin ishga tushadi
     await this.propertyModel
@@ -34,7 +34,7 @@ export class BatchService {
       .exec();
   }
 
- public async batchTopProperties(): Promise<void> {
+  public async batchTopProperties(): Promise<void> {
     const properties: Property[] = await this.propertyModel
       .find({
         propertyStatus: PropertyStatus.ACTIVE,
@@ -69,7 +69,7 @@ export class BatchService {
     await Promise.all(promisedList);
   }
 
-   public getHello(): string {
+  public getHello(): string {
     return 'Welcome to Nestar BATCH Server!';
   }
 }

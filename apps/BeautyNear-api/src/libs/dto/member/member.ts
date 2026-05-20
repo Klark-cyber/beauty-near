@@ -1,98 +1,115 @@
-import { Field, Int, ObjectType } from "@nestjs/graphql";
-import * as mongoose from "mongoose";
-import { MemberAuthType, MemberStatus, MemberType } from "../../enums/member.enum";
-import { MeLiked } from "../like/like";
-import { MeFollowed } from "../follow/follow";
+import { Field, Int, ObjectType } from '@nestjs/graphql';
+import * as mongoose from 'mongoose';
+import { MemberAuthType, MemberStatus, MemberType } from '../../enums/member.enum';
+import { MeLiked } from '../like/like';
+import { MeFollowed } from '../follow/follow';
 
-
-// Backend => Frontend types @ObjectType() orqali hosil qilinadi
 @ObjectType()
-export class Member{
-    @Field(() => String) //Field bu return boladigan resultni typeni tekshirib beradi
-    _id: mongoose.Types.ObjectId;
+export class Member {
+  @Field(() => String)
+  _id: mongoose.Types.ObjectId;
 
-    @Field(() => MemberType)
-    memberType: MemberType;
+  @Field(() => MemberType)
+  memberType: MemberType;
 
-    @Field(() => MemberStatus)
-    memberStatus: MemberStatus;
+  @Field(() => MemberStatus)
+  memberStatus: MemberStatus;
 
-    @Field(() => MemberAuthType)
-    memberAuthType: MemberAuthType;
+  @Field(() => MemberAuthType)
+  memberAuthType: MemberAuthType;
 
-    @Field(() => String)
-    memberPhone: string;
+  @Field(() => String)
+  memberPhone: string;
 
-    @Field(() => String)
-    memberNick: string;
+  @Field(() => String)
+  memberNick: string;
 
-    memberPassword?: string; //Field yozilmaganiga sabab password tashqi olamga ochiqlanmaydi
-    
-    @Field(() => String, {nullable: true}) //memberFullName optional boladi
-    memberFullName?: string;
-    
-    @Field(() => String) 
-    memberImage: string;
+  memberPassword?: string;
 
-     @Field(() => String, {nullable: true}) 
-    memberAddress?: string;
+  @Field(() => String, { nullable: true })
+  memberFullName?: string;
 
-     @Field(() => String, {nullable: true}) 
-    memberDesc?: string;
+  @Field(() => String)
+  memberImage: string;
 
-    @Field(() => Int)
-    memberProperties: number;
+  // Agent uchun qo'shimcha portfolio rasmlari
+  @Field(() => [String], { nullable: true })
+  memberPortfolio?: string[];
 
-     @Field(() => Int)
-    memberArticles: number;
+  @Field(() => String, { nullable: true })
+  memberAddress?: string;
 
-    @Field(() => Int)
-    memberFollowers: number;
+  @Field(() => String, { nullable: true })
+  memberDesc?: string;
 
-     @Field(() => Int)
-    memberFollowings: number;
+  // Agent uchun: yillik tajriba
+  @Field(() => Int, { nullable: true })
+  memberExperience?: number;
 
-     @Field(() => Int, {nullable: true})  
-    memberPoints?: number;
+  // Agent uchun: mutaxassislik sohalari
+  @Field(() => [String], { nullable: true })
+  memberSpecialty?: string[];
 
-     @Field(() => Int)  
-    memberLikes: number;
+  // NESTAR: memberProperties → BEAUTYNEAR: memberSalons
+  @Field(() => Int)
+  memberSalons: number;
 
-     @Field(() => Int)  
-    memberViews: number;
+  @Field(() => Int)
+  memberArticles: number;
 
-     @Field(() => Int) 
-    memberComments: number;
+  @Field(() => Int)
+  memberFollowers: number;
 
-     @Field(() => Int)  
-    memberRank: number;
+  @Field(() => Int)
+  memberFollowings: number;
 
-     @Field(() => Int)  
-    memberWarnings: number;
+  @Field(() => Int, { nullable: true })
+  memberPoints?: number;
 
-    @Field(() => Int)
-    memberBlocks: number;
+  @Field(() => Int)
+  memberLikes: number;
 
-     @Field(() => Date, {nullable: true}) 
-    deletedAt?: Date;
+  @Field(() => Int)
+  memberViews: number;
 
-    @Field(() => Date ) 
-    createdAt: Date; 
+  @Field(() => Int)
+  memberComments: number;
 
-    @Field(() => Date ) 
-    updatedAt: Date;
+  @Field(() => Int)
+  memberRank: number;
 
-    @Field(() => String, {nullable: true} ) //jwt orqali hosil bolgan tokenni responsda graphql orqali browserga yuboramiz
-    accessToken?: string;
+  @Field(() => Int)
+  memberWarnings: number;
 
-    /** from aggregation  */
-    @Field(() => [MeLiked], { nullable: true })
-    meLiked?: MeLiked[];
+  @Field(() => Int)
+  memberBlocks: number;
 
-     @Field(() => [MeFollowed], { nullable: true })
-    meFollowed?: MeFollowed[];
+  // Geo lokatsiya — user yaqin salonlarni topishi uchun
+  @Field(() => Number, { nullable: true })
+  memberLatitude?: number;
+
+  @Field(() => Number, { nullable: true })
+  memberLongitude?: number;
+
+  @Field(() => Date, { nullable: true })
+  deletedAt?: Date;
+
+  @Field(() => Date)
+  createdAt: Date;
+
+  @Field(() => Date)
+  updatedAt: Date;
+
+  @Field(() => String, { nullable: true })
+  accessToken?: string;
+
+  /** from aggregation **/
+  @Field(() => [MeLiked], { nullable: true })
+  meLiked?: MeLiked[];
+
+  @Field(() => [MeFollowed], { nullable: true })
+  meFollowed?: MeFollowed[];
 }
-
 
 @ObjectType()
 export class TotalCounter {
@@ -105,6 +122,6 @@ export class Members {
   @Field(() => [Member])
   list?: Member[];
 
-  @Field(() => [TotalCounter], {nullable: true})
+  @Field(() => [TotalCounter], { nullable: true })
   metaCounter: TotalCounter[];
 }

@@ -1,64 +1,60 @@
-import { Field, InputType, Int } from "@nestjs/graphql";
-import {IsIn, IsNotEmpty, IsOptional, Length, Min} from "class-validator"
-import { MemberAuthType, MemberStatus, MemberType } from "../../enums/member.enum";
-import { availableAgentSorts, availableMemberSorts } from "../../config";
-import type { Direction } from "readline";
+import { Field, InputType, Int } from '@nestjs/graphql';
+import { IsIn, IsNotEmpty, IsNumber, IsOptional, Length, Min } from 'class-validator';
+import { MemberAuthType, MemberStatus, MemberType } from '../../enums/member.enum';
+import { availableAgentSorts, availableMemberSorts } from '../../config';
+import { Direction } from '../../enums/common.enum';
 
-// Frontend => Backend input types @InputType() orqali hosil qilinadi
-
-@InputType() 
-export class MemberInput { //kirib keladigan malumotlarni tekshirish uchun type
-    @IsNotEmpty() //ushbu malumotni kiritish shart
+@InputType()
+export class MemberInput {
+    @IsNotEmpty()
     @Length(3, 12)
     @Field(() => String)
     memberNick: string;
 
-     @IsNotEmpty()
+    @IsNotEmpty()
     @Length(5, 12)
     @Field(() => String)
     memberPassword: string;
-    
-    @IsNotEmpty() 
+
+    @IsNotEmpty()
     @Field(() => String)
     memberPhone: string;
 
     @IsOptional()
-    @Field(() => MemberType, {nullable: true}) //nullable:true optional ekanligini anglatadi
+    @Field(() => MemberType, { nullable: true })
     memberType?: MemberType;
-    
 
-    @IsOptional() //bu malumot optional
-    @Field(() => MemberAuthType, {nullable: true}) //nullable:true optional ekanligini anglatadi
-    memberAuthType?: MemberAuthType; 
+    @IsOptional()
+    @Field(() => MemberAuthType, { nullable: true })
+    memberAuthType?: MemberAuthType;
 }
 
 @InputType()
-export class LoginInput { //kirib keladigan malumotlarni tekshirish uchun type
-    @IsNotEmpty() //ushbu malumotni kiritish shart
+export class LoginInput {
+    @IsNotEmpty()
     @Length(3, 12)
     @Field(() => String)
     memberNick: string;
 
-     @IsNotEmpty()
+    @IsNotEmpty()
     @Length(5, 12)
     @Field(() => String)
     memberPassword: string;
-    
-}
-
-@InputType() //search paytida agentlarni nomlari orqali topish uchun
-class AIsearch {
-    @IsOptional()
-    @Field(() => String, {nullable: true})
-    text?: string
 }
 
 @InputType()
-export class AgentInquiry{
+class AIsearch {
+    @IsOptional()
+    @Field(() => String, { nullable: true })
+    text?: string;
+}
+
+@InputType()
+export class AgentInquiry {
     @IsNotEmpty()
     @Min(1)
     @Field(() => Int)
-    page: number; //pagenation uchun kerak boladi
+    page: number;
 
     @IsNotEmpty()
     @Min(1)
@@ -66,12 +62,12 @@ export class AgentInquiry{
     limit: number;
 
     @IsOptional()
-    @IsIn([availableAgentSorts]) //userlar agentlarni shu parametrlar boyicha sort qiladi
-    @Field(() => String, {nullable: true}) //sorting mexanizm uchun
+    @IsIn(availableAgentSorts)
+    @Field(() => String, { nullable: true })
     sort?: string;
 
     @IsOptional()
-    @Field(() => String, {nullable: true}) //sorting mexanizm uchun
+    @Field(() => Direction, { nullable: true })
     direction?: Direction;
 
     @IsNotEmpty()
@@ -79,28 +75,27 @@ export class AgentInquiry{
     search: AIsearch;
 }
 
-
-@InputType() //search paytida agentlarni nomlari orqali topish uchun
+@InputType()
 class MIsearch {
     @IsOptional()
-    @Field(() => MemberType, {nullable: true}) //Agent userlarni typi boyicha sort qilishi mumkin
-    memberType?: MemberType
+    @Field(() => MemberType, { nullable: true })
+    memberType?: MemberType;
 
     @IsOptional()
-    @Field(() => MemberStatus, {nullable: true})
-    memberStatus?: MemberStatus
+    @Field(() => MemberStatus, { nullable: true })
+    memberStatus?: MemberStatus;
 
     @IsOptional()
-    @Field(() => String, {nullable: true})
-    text?: string
+    @Field(() => String, { nullable: true })
+    text?: string;
 }
 
 @InputType()
-export class MembersInquiry{
+export class MembersInquiry {
     @IsNotEmpty()
     @Min(1)
     @Field(() => Int)
-    page: number; //pagenation uchun kerak boladi
+    page: number;
 
     @IsNotEmpty()
     @Min(1)
@@ -108,12 +103,12 @@ export class MembersInquiry{
     limit: number;
 
     @IsOptional()
-    @IsIn([availableMemberSorts]) //userlar agentlarni shu parametrlar boyicha sort qiladi
-    @Field(() => String, {nullable: true}) //sorting mexanizm uchun
+    @IsIn(availableMemberSorts)
+    @Field(() => String, { nullable: true })
     sort?: string;
 
     @IsOptional()
-    @Field(() => String, {nullable: true}) //sorting mexanizm uchun
+    @Field(() => Direction, { nullable: true })
     direction?: Direction;
 
     @IsNotEmpty()

@@ -8,9 +8,9 @@ export class Comment {
 	@Field(() => String)
 	_id: mongoose.ObjectId;
 
-	@Field(() => CommentStatus)
+	@Field(() => CommentStatus) // TYPO TUZATILDI: Nestar da "ç" belgisi bor edi
 	commentStatus: CommentStatus;
-ç
+
 	@Field(() => CommentGroup)
 	commentGroup: CommentGroup;
 
@@ -30,7 +30,6 @@ export class Comment {
 	updatedAt: Date;
 
 	/** from aggregation **/
-
 	@Field(() => Member, { nullable: true })
 	memberData?: Member;
 }

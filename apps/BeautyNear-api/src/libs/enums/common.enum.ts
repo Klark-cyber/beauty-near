@@ -1,4 +1,4 @@
-import { registerEnumType } from "@nestjs/graphql";
+import { registerEnumType } from '@nestjs/graphql';
 
 export enum Message {
     SOMETHING_WENT_WRONG = 'Something went wrong!',
@@ -9,7 +9,7 @@ export enum Message {
     UPLOAD_FAILED = 'Upload failed!',
     BAD_REQUEST = 'Bad Request',
 
-    USED_MEMBER_NICK_OR_PHONE = "Already used member nick or phone!.",
+    USED_MEMBER_NICK_OR_PHONE = 'Already used member nick or phone!.',
     NO_MEMBER_NICK = 'No member with that member nick!',
     BLOCKED_USER = 'You have been blocked!',
     WRONG_PASSWORD = 'Wrong password, try again!',
@@ -21,8 +21,8 @@ export enum Message {
     SELF_SUBSCRIPTION_DENIED = 'Self subscription is denied!',
 }
 
-export enum Direction{ //agentlarni pasdan yuqorig yoki yuqoridan pasga qarab tartiblash uchun enum
-    ASC =1,
-    DESC =-1,
+export enum Direction {
+    ASC = 1,
+    DESC = -1,
 }
-registerEnumType(Direction,{name: 'Direction'})
+registerEnumType(Direction, { name: 'Direction' });

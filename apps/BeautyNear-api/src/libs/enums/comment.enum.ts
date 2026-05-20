@@ -9,9 +9,9 @@ registerEnumType(CommentStatus, {
 });
 
 export enum CommentGroup {
-	MEMBER = 'MEMBER',
+	SALON = 'SALON',     // PROPERTY o'rniga
+	SERVICE = 'SERVICE', // yangi — xizmatga izoh
 	ARTICLE = 'ARTICLE',
-	PROPERTY = 'PROPERTY',
 }
 registerEnumType(CommentGroup, {
 	name: 'CommentGroup',

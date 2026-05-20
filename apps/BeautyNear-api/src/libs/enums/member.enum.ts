@@ -1,21 +1,20 @@
-import { registerEnumType } from '@nestjs/graphql'; //pasdagi enumlarni graphqlda togridan togri ishlatib bolmaydi shu sababli ushbu packagedan foydalanib enumlarni royxatdan otqazamiz
+import { registerEnumType } from '@nestjs/graphql';
 
 export enum MemberType {
   USER = 'USER',
   AGENT = 'AGENT',
   ADMIN = 'ADMIN',
 }
-
-registerEnumType(MemberType, { //bu qator orqali graphql ichida istalgan yerda ushbu typedan foydalanishimiz mumkin boladi
-  name: 'MemberType', 
+registerEnumType(MemberType, {
+  name: 'MemberType',
 });
 
 export enum MemberStatus {
   ACTIVE = 'ACTIVE',
-  BLOCK = 'BLOCK',
+  INACTIVE = 'INACTIVE', // BLOCK o'rniga — platformaga kirmagan yoki tasdiqlash kutayotgan
+  PAUSE = 'PAUSE',       // vaqtincha to'xtatilgan (agent o'zi yoki admin tomonidan)
   DELETE = 'DELETE',
 }
-
 registerEnumType(MemberStatus, {
   name: 'MemberStatus',
 });
@@ -23,9 +22,9 @@ registerEnumType(MemberStatus, {
 export enum MemberAuthType {
   PHONE = 'PHONE',
   EMAIL = 'EMAIL',
-  TELEGRAM = 'TELEGRAM',
+  KAKAO = 'KAKAO',  // TELEGRAM o'rniga — Koreya bozori uchun
+  NAVER = 'NAVER',  // yangi — Koreya bozori uchun
 }
-
 registerEnumType(MemberAuthType, {
   name: 'MemberAuthType',
 });
