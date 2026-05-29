@@ -32,11 +32,16 @@ export class ServiceInput {
     @Field(() => Int)
     serviceDuration: number; // daqiqada (masalan: 60)
 
+    @IsNotEmpty()
+    @Field(() => String)
+    salonId: mongoose.ObjectId;
+
     @IsOptional()
     @Field(() => [String], { nullable: true })
     serviceImages?: string[]; // before/after rasmlar
 
-    salonId?: mongoose.ObjectId;  // AuthMember + agent salonidan olinadi
+
+    //salonId?: mongoose.ObjectId;  // AuthMember + agent salonidan olinadi
     memberId?: mongoose.ObjectId; // AuthMember dekorator orqali qo'shiladi
 }
 

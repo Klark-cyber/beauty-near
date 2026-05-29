@@ -1,6 +1,8 @@
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { ServiceService } from './service.service';
 import { Service, Services } from '../../libs/dto/service/service';
 import { AgentServicesInquiry, ServiceInput, ServicesInquiry } from '../../libs/dto/service/service.input';
+import { OrdinaryInquiry } from '../../libs/dto/salon/salon.input';
 import { ServiceUpdate } from '../../libs/dto/service/service.update';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UseGuards } from '@nestjs/common';
@@ -11,7 +13,6 @@ import * as mongoose from 'mongoose';
 import { WithoutGuard } from '../auth/guards/without.guard';
 import { shapeIntoMongoObjectId } from '../../libs/config';
 import { AuthGuard } from '../auth/guards/auth.guard';
-import { ServiceService } from './service.service';
 
 @Resolver()
 export class ServiceResolver {
@@ -71,6 +72,28 @@ export class ServiceResolver {
 	): Promise<Services> {
 		console.log('Query: getAgentServices');
 		return await this.serviceService.getAgentServices(memberId, input);
+	}
+
+	// USER: like bosgan servicelarni oladi
+	@UseGuards(AuthGuard)
+	@Query(() => Services)
+	public async getFavoriteServices(
+		@Args('input') input: OrdinaryInquiry,
+		@AuthMember('_id') memberId: mongoose.ObjectId,
+	): Promise<Services> {
+		console.log('Query: getFavoriteServices');
+		return await this.serviceService.getFavoriteServices(memberId, input);
+	}
+
+	// USER: ko'rgan servicelarini oladi
+	@UseGuards(AuthGuard)
+	@Query(() => Services)
+	public async getVisitedServices(
+		@Args('input') input: OrdinaryInquiry,
+		@AuthMember('_id') memberId: mongoose.ObjectId,
+	): Promise<Services> {
+		console.log('Query: getVisitedServices');
+		return await this.serviceService.getVisitedServices(memberId, input);
 	}
 
 	@UseGuards(AuthGuard)

@@ -80,9 +80,9 @@ export class BookingService {
         const totalAmount = targetService.servicePrice;
         const remainAmount = totalAmount - depositAmount;
 
-        const orderId = `BEAUTYNEAR_${Date.now()}_${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+        // const orderId = `BEAUTYNEAR_${Date.now()}_${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 
-        await this.confirmPayment(input.paymentKey, orderId, depositAmount);
+        // await this.confirmPayment(input.paymentKey, orderId, depositAmount);
 
         try {
             const result = await this.bookingModel.create({

@@ -7,6 +7,7 @@ import { T } from '../../libs/types/common';
 import { Message } from '../../libs/enums/common.enum';
 import { OrdinaryInquiry } from '../../libs/dto/salon/salon.input';
 import { Salons } from '../../libs/dto/salon/salon';
+import { Services } from '../../libs/dto/service/service';
 import { LikeGroup } from '../../libs/enums/like.enum';
 
 @Injectable()
@@ -40,7 +41,7 @@ export class LikeService {
         return result ? [{ memberId: memberId, likeRefId: likeRefId, myFavorite: true }] : [];
     }
 
-    // NESTAR: getFavoriteProperties → BEAUTYNEAR: getFavoriteSalons
+    // User like bosgan salonlar
     public async getFavoriteSalons(memberId: ObjectId, input: OrdinaryInquiry): Promise<Salons> {
         const { page, limit } = input;
         const match: T = { likeGroup: LikeGroup.SALON, memberId: memberId };
@@ -79,9 +80,61 @@ export class LikeService {
             ])
             .exec();
 
-        console.log('getFavoriteSalons data:', data[0]);
         const result: Salons = { list: [], metaCounter: data[0].metaCounter };
         result.list = data[0].list.map((ele: T) => ele.favoriteSalon);
+        return result;
+    }
+
+    // User like bosgan servicelar
+    public async getFavoriteServices(memberId: ObjectId, input: OrdinaryInquiry): Promise<Services> {
+        const { page, limit } = input;
+        const match: T = { likeGroup: LikeGroup.SERVICE, memberId: memberId };
+
+        const data: T = await this.likeModel
+            .aggregate([
+                { $match: match },
+                { $sort: { updatedAt: -1 } },
+                {
+                    $lookup: {
+                        from: 'services',
+                        localField: 'likeRefId',
+                        foreignField: '_id',
+                        as: 'favoriteService',
+                    },
+                },
+                { $unwind: '$favoriteService' },
+                {
+                    $facet: {
+                        list: [
+                            { $skip: (page - 1) * limit },
+                            { $limit: limit },
+                            {
+                                $lookup: {
+                                    from: 'members',
+                                    localField: 'favoriteService.memberId',
+                                    foreignField: '_id',
+                                    as: 'favoriteService.memberData',
+                                },
+                            },
+                            { $unwind: '$favoriteService.memberData' },
+                            {
+                                $lookup: {
+                                    from: 'salons',
+                                    localField: 'favoriteService.salonId',
+                                    foreignField: '_id',
+                                    as: 'favoriteService.salonData',
+                                },
+                            },
+                            { $unwind: '$favoriteService.salonData' },
+                        ],
+                        metaCounter: [{ $count: 'total' }],
+                    },
+                },
+            ])
+            .exec();
+
+        const result: Services = { list: [], metaCounter: data[0].metaCounter };
+        result.list = data[0].list.map((ele: T) => ele.favoriteService);
         return result;
     }
 }

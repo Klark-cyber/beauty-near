@@ -32,7 +32,7 @@ const NotificationSchema = new Schema(
 
 		authorId: {
 			type: Schema.Types.ObjectId,
-			required: true,
+			required: false,
 			ref: 'Member',
 		},
 

@@ -6,6 +6,7 @@ import { ViewInput } from '../../libs/dto/view/view.input';
 import { T } from '../../libs/types/common';
 import { OrdinaryInquiry } from '../../libs/dto/salon/salon.input';
 import { Salons } from '../../libs/dto/salon/salon';
+import { Services } from '../../libs/dto/service/service';
 import { ViewGroup } from '../../libs/enums/view.enum';
 
 @Injectable()
@@ -26,7 +27,7 @@ export class ViewService {
         return await this.viewModel.findOne(search).exec();
     }
 
-    // NESTAR: getVisitedProperties → BEAUTYNEAR: getVisitedSalons
+    // User ko'rgan salonlar
     public async getVisitedSalons(memberId: ObjectId, input: OrdinaryInquiry): Promise<Salons> {
         const { page, limit } = input;
         const match: T = { viewGroup: ViewGroup.SALON, memberId: memberId };
@@ -65,9 +66,61 @@ export class ViewService {
             ])
             .exec();
 
-        console.log('getVisitedSalons data:', data[0]);
         const result: Salons = { list: [], metaCounter: data[0].metaCounter };
         result.list = data[0].list.map((ele: T) => ele.visitedSalon);
+        return result;
+    }
+
+    // User ko'rgan servicelar
+    public async getVisitedServices(memberId: ObjectId, input: OrdinaryInquiry): Promise<Services> {
+        const { page, limit } = input;
+        const match: T = { viewGroup: ViewGroup.SERVICE, memberId: memberId };
+
+        const data: T = await this.viewModel
+            .aggregate([
+                { $match: match },
+                { $sort: { updatedAt: -1 } },
+                {
+                    $lookup: {
+                        from: 'services',
+                        localField: 'viewRefId',
+                        foreignField: '_id',
+                        as: 'visitedService',
+                    },
+                },
+                { $unwind: '$visitedService' },
+                {
+                    $facet: {
+                        list: [
+                            { $skip: (page - 1) * limit },
+                            { $limit: limit },
+                            {
+                                $lookup: {
+                                    from: 'members',
+                                    localField: 'visitedService.memberId',
+                                    foreignField: '_id',
+                                    as: 'visitedService.memberData',
+                                },
+                            },
+                            { $unwind: '$visitedService.memberData' },
+                            {
+                                $lookup: {
+                                    from: 'salons',
+                                    localField: 'visitedService.salonId',
+                                    foreignField: '_id',
+                                    as: 'visitedService.salonData',
+                                },
+                            },
+                            { $unwind: '$visitedService.salonData' },
+                        ],
+                        metaCounter: [{ $count: 'total' }],
+                    },
+                },
+            ])
+            .exec();
+
+        const result: Services = { list: [], metaCounter: data[0].metaCounter };
+        result.list = data[0].list.map((ele: T) => ele.visitedService);
         return result;
     }
 }

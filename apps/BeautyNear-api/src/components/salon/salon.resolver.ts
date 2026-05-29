@@ -17,7 +17,6 @@ import { SalonService } from './salon.service';
 export class SalonResolver {
   constructor(private readonly salonService: SalonService) { }
 
-  // AGENT: salon yaratadi
   @Roles(MemberType.AGENT)
   @UseGuards(RolesGuard)
   @Mutation(() => Salon)
@@ -30,7 +29,6 @@ export class SalonResolver {
     return await this.salonService.createSalon(input);
   }
 
-  // USER/GUEST: bitta salonni ko'radi
   @UseGuards(WithoutGuard)
   @Query(() => Salon)
   public async getSalon(
@@ -42,7 +40,6 @@ export class SalonResolver {
     return await this.salonService.getSalon(memberId, salonId);
   }
 
-  // AGENT: o'z salonini yangilaydi
   @Roles(MemberType.AGENT)
   @UseGuards(RolesGuard)
   @Mutation(() => Salon)
@@ -55,7 +52,6 @@ export class SalonResolver {
     return await this.salonService.updateSalon(memberId, input);
   }
 
-  // USER/GUEST: salonlar ro'yxatini oladi (filter + pagination)
   @UseGuards(WithoutGuard)
   @Query(() => Salons)
   public async getSalons(
@@ -66,7 +62,6 @@ export class SalonResolver {
     return await this.salonService.getSalons(memberId, input);
   }
 
-  // AGENT: o'z salonlarini boshqaradi
   @Roles(MemberType.AGENT)
   @UseGuards(RolesGuard)
   @Query(() => Salons)
@@ -78,7 +73,6 @@ export class SalonResolver {
     return await this.salonService.getAgentSalons(memberId, input);
   }
 
-  // USER: like bosgan salonlarni oladi (favorites)
   @UseGuards(AuthGuard)
   @Query(() => Salons)
   public async getFavoriteSalons(
@@ -89,7 +83,6 @@ export class SalonResolver {
     return await this.salonService.getFavoriteSalons(memberId, input);
   }
 
-  // USER: ko'rgan salonlarini oladi (visited)
   @UseGuards(AuthGuard)
   @Query(() => Salons)
   public async getVisitedSalons(
@@ -100,7 +93,6 @@ export class SalonResolver {
     return await this.salonService.getVisitedSalons(memberId, input);
   }
 
-  // USER: salonga like bosadi
   @UseGuards(AuthGuard)
   @Mutation(() => Salon)
   public async likeTargetSalon(
@@ -110,6 +102,34 @@ export class SalonResolver {
     console.log('Mutation: likeTargetSalon');
     const likeRefId = shapeIntoMongoObjectId(input);
     return await this.salonService.likeTargetSalon(memberId, likeRefId);
+  }
+
+  // AGENT: aksiya e'lon qiladi → followchilarga notification
+  @Roles(MemberType.AGENT)
+  @UseGuards(RolesGuard)
+  @Mutation(() => Boolean)
+  public async announceDiscount(
+    @Args('salonId') input: string,
+    @AuthMember('_id') memberId: mongoose.ObjectId,
+  ): Promise<boolean> {
+    console.log('Mutation: announceDiscount');
+    const salonId = shapeIntoMongoObjectId(input);
+    await this.salonService.announceDiscount(memberId, salonId);
+    return true;
+  }
+
+  // AGENT: bugun bo'sh vaqt borligini e'lon qiladi → followchilarga notification
+  @Roles(MemberType.AGENT)
+  @UseGuards(RolesGuard)
+  @Mutation(() => Boolean)
+  public async announceFreeSlot(
+    @Args('salonId') input: string,
+    @AuthMember('_id') memberId: mongoose.ObjectId,
+  ): Promise<boolean> {
+    console.log('Mutation: announceFreeSlot');
+    const salonId = shapeIntoMongoObjectId(input);
+    await this.salonService.announceFreeSlot(memberId, salonId);
+    return true;
   }
 
   /* ADMIN */

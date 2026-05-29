@@ -147,6 +147,14 @@ export class ServiceService {
         return result[0];
     }
 
+    public async getFavoriteServices(memberId: ObjectId, input: any): Promise<Services> {
+        return await this.likeService.getFavoriteServices(memberId, input);
+    }
+
+    public async getVisitedServices(memberId: ObjectId, input: any): Promise<Services> {
+        return await this.viewService.getVisitedServices(memberId, input);
+    }
+
     public async likeTargetService(memberId: ObjectId, likeRefId: ObjectId): Promise<Service> {
         const target = await this.serviceModel
             .findOne({ _id: likeRefId, serviceStatus: ServiceStatus.ACTIVE })
