@@ -20,11 +20,19 @@ export class Follower {
 	@Field(() => String)
 	_id: mongoose.ObjectId;
 
-	@Field(() => String)
-	followingId: mongoose.ObjectId;
+	@Field(() => String, { nullable: true })
+	followingId?: mongoose.ObjectId;
 
 	@Field(() => String)
 	followerId: mongoose.ObjectId;
+
+	// SALON follow uchun
+	@Field(() => String, { nullable: true })
+	salonId?: mongoose.ObjectId;
+
+	// SERVICE follow uchun
+	@Field(() => String, { nullable: true })
+	serviceId?: mongoose.ObjectId;
 
 	@Field(() => Date)
 	createdAt: Date;
@@ -48,11 +56,19 @@ export class Following {
 	@Field(() => String)
 	_id: mongoose.ObjectId;
 
-	@Field(() => String)
-	followingId: mongoose.ObjectId;
+	@Field(() => String, { nullable: true })
+	followingId?: mongoose.ObjectId;
 
 	@Field(() => String)
 	followerId: mongoose.ObjectId;
+
+	// SALON follow uchun
+	@Field(() => String, { nullable: true })
+	salonId?: mongoose.ObjectId;
+
+	// SERVICE follow uchun
+	@Field(() => String, { nullable: true })
+	serviceId?: mongoose.ObjectId;
 
 	@Field(() => Date)
 	createdAt: Date;

@@ -11,13 +11,14 @@ import FollowSchema from '../../schemas/Follow.model';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: "Member", schema: MemberSchema }]),
-    MongooseModule.forFeature([{ name: "Follow", schema: FollowSchema }]),
+    MongooseModule.forFeature([{ name: 'Member', schema: MemberSchema }]),
+    MongooseModule.forFeature([{ name: 'Follow', schema: FollowSchema }]),
     AuthModule,
     ViewModule,
     LikeModule,
+    forwardRef(() => FollowModule),
   ],
   providers: [MemberResolver, MemberService],
   exports: [MemberService],
 })
-export class MemberModule {}
+export class MemberModule { }

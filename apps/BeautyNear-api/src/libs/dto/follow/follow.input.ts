@@ -11,6 +11,16 @@ class FollowSearch {
 	@IsOptional()
 	@Field(() => String, { nullable: true })
 	followerId?: mongoose.ObjectId;
+
+	// SALON follow uchun
+	@IsOptional()
+	@Field(() => String, { nullable: true })
+	salonId?: mongoose.ObjectId;
+
+	// SERVICE follow uchun
+	@IsOptional()
+	@Field(() => String, { nullable: true })
+	serviceId?: mongoose.ObjectId;
 }
 
 @InputType()
@@ -28,4 +38,23 @@ export class FollowInquiry {
 	@IsNotEmpty()
 	@Field(() => FollowSearch)
 	search: FollowSearch;
+}
+
+// subscribe / unsubscribe uchun alohida input
+@InputType()
+export class FollowToggleInput {
+	// MEMBER follow: followingId
+	@IsOptional()
+	@Field(() => String, { nullable: true })
+	followingId?: mongoose.ObjectId;
+
+	// SALON follow: salonId
+	@IsOptional()
+	@Field(() => String, { nullable: true })
+	salonId?: mongoose.ObjectId;
+
+	// SERVICE follow: serviceId
+	@IsOptional()
+	@Field(() => String, { nullable: true })
+	serviceId?: mongoose.ObjectId;
 }

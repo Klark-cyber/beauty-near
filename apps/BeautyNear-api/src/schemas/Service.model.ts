@@ -79,6 +79,11 @@ const ServiceSchema = new Schema(
 			ref: 'Member',
 		},
 
+		serviceFollowers: {
+			type: Number,
+			default: 0,
+		},
+
 		deletedAt: {
 			type: Date,
 		},

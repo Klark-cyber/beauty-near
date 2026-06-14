@@ -112,12 +112,18 @@ export class MemberService {
     }
 
     public async getAgents(memberId: ObjectId, input: AgentInquiry): Promise<Members> {
-        const { text } = input.search;
+        const { text, memberSpecialty, memberLocation, memberExperience } = input.search;
         const match: T = { memberType: MemberType.AGENT, memberStatus: MemberStatus.ACTIVE };
         const sort: T = { [input?.sort ?? 'createdAt']: input.direction ?? Direction.DESC };
 
         if (text) match.memberNick = { $regex: new RegExp(text, 'i') };
-        console.log('match', match);
+        if (memberSpecialty && memberSpecialty.length > 0) {
+            match.memberSpecialty = { $in: memberSpecialty };
+        }
+        if (memberLocation) match.memberAddress = { $regex: new RegExp(memberLocation, 'i') };
+        if (memberExperience) match.memberExperience = { $gte: memberExperience };
+
+        console.log('match:', match);
 
         const result = await this.memberModel
             .aggregate([

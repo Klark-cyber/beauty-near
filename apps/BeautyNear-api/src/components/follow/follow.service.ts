@@ -1,12 +1,12 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Follower, Followers, Following, Followings } from '../../libs/dto/follow/follow';
 import { MemberService } from '../member/member.service';
 import { Model, ObjectId } from 'mongoose';
 import { Direction } from '../../libs/enums/common.enum';
 import { Message } from '../../libs/enums/common.enum';
-import { lookupAuthMemberFollowed, lookupAuthMemberLiked, lookupFollowerData, lookupFollowingData } from '../../libs/config';
-import { FollowInquiry } from '../../libs/dto/follow/follow.input';
+import { lookupAuthMemberFollowed, lookupAuthMemberLiked, lookupFollowerData, lookupFollowingData, shapeIntoMongoObjectId } from '../../libs/config';
+import { FollowInquiry, FollowToggleInput } from '../../libs/dto/follow/follow.input';
 import { T } from '../../libs/types/common';
 import { SocketGateway } from '../../socket/socket.gateway';
 
@@ -14,49 +14,97 @@ import { SocketGateway } from '../../socket/socket.gateway';
 export class FollowService {
   constructor(
     @InjectModel('Follow') private readonly followModel: Model<Follower | Following>,
+    @Inject(forwardRef(() => MemberService))
     private readonly memberService: MemberService,
     private readonly socketGateway: SocketGateway,
   ) { }
 
-  public async subscribe(followerId: ObjectId, followingId: ObjectId): Promise<Follower> {
-    if (followerId.toString() === followingId.toString()) {
-      throw new InternalServerErrorException(Message.SELF_SUBSCRIPTION_DENIED);
+  public async subscribe(followerId: ObjectId, input: FollowToggleInput): Promise<Follower> {
+    const { followingId, salonId, serviceId } = input;
+
+    if (followingId) {
+      if (followerId.toString() === followingId.toString()) {
+        throw new InternalServerErrorException(Message.SELF_SUBSCRIPTION_DENIED);
+      }
+      const targetMember = await this.memberService.getMember(null, followingId);
+      if (!targetMember) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+
+      const result = await this.registerSubscription({ followerId, followingId });
+
+      await this.memberService.memberStatsEditor({ _id: followerId, targetKey: 'memberFollowings', modifier: 1 });
+      await this.memberService.memberStatsEditor({ _id: followingId, targetKey: 'memberFollowers', modifier: 1 });
+      await this.socketGateway.notifyFollow(followerId, followingId);
+
+      return result;
     }
 
-    const targetMember = await this.memberService.getMember(null, followingId);
-    if (!targetMember) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+    if (salonId) {
+      const result = await this.registerSubscription({ followerId, salonId });
+      await this.followModel.db.collection('salons').updateOne(
+        { _id: shapeIntoMongoObjectId(salonId) },
+        { $inc: { salonFollowers: 1 } },
+      );
+      return result;
+    }
 
-    const result = await this.registerSubscription(followerId, followingId);
+    if (serviceId) {
+      const result = await this.registerSubscription({ followerId, serviceId });
+      await this.followModel.db.collection('services').updateOne(
+        { _id: shapeIntoMongoObjectId(serviceId) },
+        { $inc: { serviceFollowers: 1 } },
+      );
+      return result;
+    }
 
-    await this.memberService.memberStatsEditor({ _id: followerId, targetKey: 'memberFollowings', modifier: 1 });
-    await this.memberService.memberStatsEditor({ _id: followingId, targetKey: 'memberFollowers', modifier: 1 });
-
-    // Notification: followingId ga xabar yuboramiz
-    await this.socketGateway.notifyFollow(followerId, followingId);
-
-    return result;
+    throw new InternalServerErrorException(Message.BAD_REQUEST);
   }
 
-  private async registerSubscription(followerId: ObjectId, followingId: ObjectId): Promise<Follower> {
+  private async registerSubscription(data: T): Promise<Follower> {
     try {
-      return await this.followModel.create({ followingId, followerId });
+      return await this.followModel.create(data);
     } catch (err) {
       console.log('Error, Service.model:', err.message);
       throw new BadRequestException(Message.CREATE_FAILED);
     }
   }
 
-  public async unsubscribe(followerId: ObjectId, followingId: ObjectId): Promise<Follower> {
-    const targetMember = await this.memberService.getMember(null, followingId);
-    if (!targetMember) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+  public async unsubscribe(followerId: ObjectId, input: FollowToggleInput): Promise<Follower> {
+    const { followingId, salonId, serviceId } = input;
 
-    const result = await this.followModel.findOneAndDelete({ followingId, followerId });
-    if (!result) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+    if (followingId) {
+      const targetMember = await this.memberService.getMember(null, followingId);
+      if (!targetMember) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
 
-    await this.memberService.memberStatsEditor({ _id: followerId, targetKey: 'memberFollowings', modifier: -1 });
-    await this.memberService.memberStatsEditor({ _id: followingId, targetKey: 'memberFollowers', modifier: -1 });
+      const result = await this.followModel.findOneAndDelete({ followingId, followerId });
+      if (!result) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
 
-    return result;
+      await this.memberService.memberStatsEditor({ _id: followerId, targetKey: 'memberFollowings', modifier: -1 });
+      await this.memberService.memberStatsEditor({ _id: followingId, targetKey: 'memberFollowers', modifier: -1 });
+
+      return result;
+    }
+
+    if (salonId) {
+      const result = await this.followModel.findOneAndDelete({ salonId, followerId });
+      if (!result) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+      await this.followModel.db.collection('salons').updateOne(
+        { _id: shapeIntoMongoObjectId(salonId) },
+        { $inc: { salonFollowers: -1 } },
+      );
+      return result;
+    }
+
+    if (serviceId) {
+      const result = await this.followModel.findOneAndDelete({ serviceId, followerId });
+      if (!result) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+      await this.followModel.db.collection('services').updateOne(
+        { _id: shapeIntoMongoObjectId(serviceId) },
+        { $inc: { serviceFollowers: -1 } },
+      );
+      return result;
+    }
+
+    throw new InternalServerErrorException(Message.BAD_REQUEST);
   }
 
   public async getMemberFollowings(memberId: ObjectId, input: FollowInquiry): Promise<Followings> {

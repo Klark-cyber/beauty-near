@@ -47,6 +47,20 @@ class AIsearch {
     @IsOptional()
     @Field(() => String, { nullable: true })
     text?: string;
+
+    // Specialist filter uchun
+    @IsOptional()
+    @Field(() => [String], { nullable: true })
+    memberSpecialty?: string[];
+
+    @IsOptional()
+    @Field(() => String, { nullable: true })
+    memberLocation?: string;
+
+    @IsOptional()
+    @IsNumber()
+    @Field(() => Int, { nullable: true })
+    memberExperience?: number;
 }
 
 @InputType()
