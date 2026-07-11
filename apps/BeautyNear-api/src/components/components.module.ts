@@ -10,6 +10,9 @@ import { ViewModule } from './view/view.module';
 import { FollowModule } from './follow/follow.module';
 import { BoardArticleModule } from './board-article/board-article.module';
 import { SocketModule } from '../socket/socket.module';
+import { FaqModule } from './faq/faq.module';
+import { NoticeModule } from './notice/notice.module';
+import { InquiryModule } from './inquiry/inquiry.module';
 
 @Module({
   imports: [
@@ -24,6 +27,9 @@ import { SocketModule } from '../socket/socket.module';
     CommentModule,
     FollowModule,
     SocketModule,
+    FaqModule,
+    NoticeModule,
+    InquiryModule,
   ],
 })
 export class ComponentsModule { }

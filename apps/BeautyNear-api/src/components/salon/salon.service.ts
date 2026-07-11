@@ -21,6 +21,7 @@ import { SocketGateway } from '../../socket/socket.gateway';
 export class SalonService {
   constructor(
     @InjectModel('Salon') private readonly salonModel: Model<Salon>,
+    @InjectModel('Follow') private readonly followModel: Model<any>,
     private readonly memberService: MemberService,
     private readonly viewService: ViewService,
     private readonly likeService: LikeService,
@@ -29,6 +30,16 @@ export class SalonService {
 
   public async createSalon(input: SalonInput): Promise<Salon> {
     try {
+      // ⚠️ TUZATILDI: avval salonLocation2d hech qachon to'ldirilmagan
+      // edi — standart qiymati [0,0] (Gvineya ko'rfazi) bo'lib qolar edi,
+      // shuning uchun $geoNear (Nearby Salons) HECH QANDAY salonni to'g'ri
+      // masofada topa olmas edi.
+      if (input.salonLatitude !== undefined && input.salonLongitude !== undefined) {
+        (input as any).salonLocation2d = {
+          type: 'Point',
+          coordinates: [input.salonLongitude, input.salonLatitude], // [lng, lat] tartibi MongoDB standarti
+        };
+      }
       const result = await this.salonModel.create(input);
       await this.memberService.memberStatsEditor({
         _id: result.memberId,
@@ -66,9 +77,38 @@ export class SalonService {
 
       const likeInput = { memberId: memberId, likeRefId: salonId, likeGroup: LikeGroup.SALON };
       targetSalon.meLiked = (await this.likeService.checkLikeExistence(likeInput)) as any;
+
+      // ⚠️ TUZATILDI: avval salon'ning o'z meFollowed'i hech qachon
+      // to'ldirilmagan edi — shuning uchun frontend "Follow Salon"
+      // tugmasi doim "Follow" ko'rsatib, takroriy urinishda "Create
+      // failed" xatosiga olib kelar edi.
+      const salonFollowExists = await this.followModel
+        .findOne({ followerId: memberId, salonId: salonId })
+        .exec();
+      targetSalon.meFollowed = (salonFollowExists
+        ? [{ followerId: memberId, followingId: salonId, myFollowing: true }]
+        : []) as any;
     }
 
+    // ⚠️ TUZATILDI: avval getMember(null, ...) chaqirilar edi — birinchi
+    // argument "null" bo'lgani uchun getMember o'zining ichki
+    // meFollowed/meLiked hisoblash blokini o'tkazib yuborar edi (u faqat
+    // "if (memberId)" shartida ishlaydi). Natijada salon egasining
+    // (memberData) meFollowed maydoni ham doim bo'sh qolar edi.
+    // ⚠️ TUZATILDI: getMember(memberId, ...) chaqirish yon ta'sirga ega
+    // edi — u ichida profil ko'rishlar sonini ham oshirar edi (salon
+    // ko'rilganda, egasining profil-ko'rishi ham noto'g'ri oshib ketardi).
+    // Shuning uchun getMember(null, ...) qoldiriladi (yon ta'sirsiz), lekin
+    // memberData.meFollowed alohida, to'g'ridan-to'g'ri hisoblanadi.
     targetSalon.memberData = (await this.memberService.getMember(null, targetSalon.memberId)) as any;
+    if (memberId && targetSalon.memberData) {
+      const ownerFollowExists = await this.followModel
+        .findOne({ followerId: memberId, followingId: targetSalon.memberId })
+        .exec();
+      (targetSalon.memberData as any).meFollowed = ownerFollowExists
+        ? [{ followerId: memberId, followingId: targetSalon.memberId, myFollowing: true }]
+        : [];
+    }
     return targetSalon;
   }
 
@@ -77,6 +117,14 @@ export class SalonService {
     const search: T = { _id: input._id, memberId: memberId, salonStatus: SalonStatus.ACTIVE };
 
     if (salonStatus === SalonStatus.DELETE) input.deletedAt = new Date();
+
+    // ⚠️ Koordinata yangilansa, salonLocation2d ham sinxronlanadi
+    if ((input as any).salonLatitude !== undefined && (input as any).salonLongitude !== undefined) {
+      (input as any).salonLocation2d = {
+        type: 'Point',
+        coordinates: [(input as any).salonLongitude, (input as any).salonLatitude],
+      };
+    }
 
     const result = await this.salonModel.findOneAndUpdate(search, input, { new: true }).exec();
     if (!result) throw new InternalServerErrorException(Message.UPDATE_FAILED);
@@ -120,7 +168,7 @@ export class SalonService {
           { $limit: input.limit },
           lookupAuthMemberLiked(memberId),
           ...lookupMember,
-          { $unwind: '$memberData' },
+          { $unwind: { path: '$memberData', preserveNullAndEmptyArrays: true } },
         ],
         metaCounter: [{ $count: 'total' }],
       },
@@ -168,7 +216,7 @@ export class SalonService {
               { $skip: (input.page - 1) * input.limit },
               { $limit: input.limit },
               ...lookupMember,
-              { $unwind: '$memberData' },
+              { $unwind: { path: '$memberData', preserveNullAndEmptyArrays: true } },
             ],
             metaCounter: [{ $count: 'total' }],
           },
@@ -214,7 +262,7 @@ export class SalonService {
               { $skip: (input.page - 1) * input.limit },
               { $limit: input.limit },
               ...lookupMember,
-              { $unwind: '$memberData' },
+              { $unwind: { path: '$memberData', preserveNullAndEmptyArrays: true } },
             ],
             metaCounter: [{ $count: 'total' }],
           },

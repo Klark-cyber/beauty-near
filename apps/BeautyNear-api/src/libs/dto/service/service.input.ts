@@ -140,3 +140,40 @@ export class AgentServicesInquiry {
     @Field(() => ASVISearch)
     search: ASVISearch;
 }
+
+@InputType()
+class ALSVISearch {
+    @IsOptional()
+    @Field(() => ServiceStatus, { nullable: true })
+    serviceStatus?: ServiceStatus;
+
+    @IsOptional()
+    @Field(() => [ServiceType], { nullable: true })
+    typeList?: ServiceType[];
+}
+
+@InputType()
+export class AllServicesInquiry {
+    @IsNotEmpty()
+    @Min(1)
+    @Field(() => Int)
+    page: number;
+
+    @IsNotEmpty()
+    @Min(1)
+    @Field(() => Int)
+    limit: number;
+
+    @IsOptional()
+    @IsIn(availableServiceSorts)
+    @Field(() => String, { nullable: true })
+    sort?: string;
+
+    @IsOptional()
+    @Field(() => Direction, { nullable: true })
+    direction?: Direction;
+
+    @IsNotEmpty()
+    @Field(() => ALSVISearch)
+    search: ALSVISearch;
+}

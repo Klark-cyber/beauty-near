@@ -1,6 +1,6 @@
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 import * as mongoose from 'mongoose';
-import { MemberAuthType, MemberStatus, MemberType } from '../../enums/member.enum';
+import { AgentRequestStatus, MemberAuthType, MemberStatus, MemberType } from '../../enums/member.enum';
 import { MeLiked } from '../like/like';
 import { MeFollowed } from '../follow/follow';
 
@@ -14,6 +14,10 @@ export class Member {
 
   @Field(() => MemberStatus)
   memberStatus: MemberStatus;
+
+  // ⚠️ YANGI
+  @Field(() => AgentRequestStatus, { nullable: true })
+  agentRequestStatus?: AgentRequestStatus;
 
   @Field(() => MemberAuthType)
   memberAuthType: MemberAuthType;

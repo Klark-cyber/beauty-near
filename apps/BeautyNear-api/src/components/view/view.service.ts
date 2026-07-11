@@ -44,7 +44,7 @@ export class ViewService {
                         as: 'visitedSalon',
                     },
                 },
-                { $unwind: '$visitedSalon' },
+                { $unwind: { path: '$visitedSalon', preserveNullAndEmptyArrays: true } },
                 {
                     $facet: {
                         list: [
@@ -58,7 +58,7 @@ export class ViewService {
                                     as: 'visitedSalon.memberData',
                                 },
                             },
-                            { $unwind: '$visitedSalon.memberData' },
+                            { $unwind: { path: '$visitedSalon.memberData', preserveNullAndEmptyArrays: true } },
                         ],
                         metaCounter: [{ $count: 'total' }],
                     },
@@ -88,7 +88,7 @@ export class ViewService {
                         as: 'visitedService',
                     },
                 },
-                { $unwind: '$visitedService' },
+                { $unwind: { path: '$visitedService', preserveNullAndEmptyArrays: true } },
                 {
                     $facet: {
                         list: [
@@ -102,7 +102,7 @@ export class ViewService {
                                     as: 'visitedService.memberData',
                                 },
                             },
-                            { $unwind: '$visitedService.memberData' },
+                            { $unwind: { path: '$visitedService.memberData', preserveNullAndEmptyArrays: true } },
                             {
                                 $lookup: {
                                     from: 'salons',
@@ -111,7 +111,7 @@ export class ViewService {
                                     as: 'visitedService.salonData',
                                 },
                             },
-                            { $unwind: '$visitedService.salonData' },
+                            { $unwind: { path: '$visitedService.salonData', preserveNullAndEmptyArrays: true } },
                         ],
                         metaCounter: [{ $count: 'total' }],
                     },

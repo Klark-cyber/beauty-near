@@ -4,7 +4,7 @@ import { Model, ObjectId } from 'mongoose';
 import { Service, Services } from '../../libs/dto/service/service';
 import { Direction } from '../../libs/enums/common.enum';
 import { Message } from '../../libs/enums/common.enum';
-import { AgentServicesInquiry, ServiceInput, ServicesInquiry } from '../../libs/dto/service/service.input';
+import { AgentServicesInquiry, AllServicesInquiry, ServiceInput, ServicesInquiry } from '../../libs/dto/service/service.input';
 import { ServiceUpdate } from '../../libs/dto/service/service.update';
 import { MemberService } from '../member/member.service';
 import { StatisticModifier, T } from '../../libs/types/common';
@@ -20,6 +20,7 @@ import { LikeGroup } from '../../libs/enums/like.enum';
 export class ServiceService {
     constructor(
         @InjectModel('Service') private readonly serviceModel: Model<Service>,
+        @InjectModel('Salon') private readonly salonModel: Model<any>,
         private readonly memberService: MemberService,
         private readonly viewService: ViewService,
         private readonly likeService: LikeService,
@@ -73,6 +74,27 @@ export class ServiceService {
         const sort: T = { [input?.sort ?? 'createdAt']: input?.direction ?? Direction.DESC };
 
         this.shapeMatchQuery(match, input);
+
+        // ⚠️ TUZATILDI: Service'ning o'zida location maydoni yo'q — u
+        // salonga tegishli. Avval shu locationList'ga mos salonlarni
+        // topib, keyin faqat o'sha salonlarga tegishli servicelarni
+        // filtrlaymiz.
+        const { locationList } = input.search;
+        if (locationList && locationList.length > 0) {
+            const matchingSalons = await this.salonModel
+                .find({ salonLocation: { $in: locationList } })
+                .select('_id')
+                .exec();
+            const salonIds = matchingSalons.map((s) => s._id);
+            // Agar allaqachon salonId bo'yicha filtr bo'lsa, ikkalasini kesishtiramiz
+            if (match.salonId) {
+                const alreadyMatches = salonIds.some((id) => id.toString() === match.salonId.toString());
+                match.salonId = alreadyMatches ? match.salonId : { $in: [] }; // hech biriga mos kelmasa — bo'sh natija
+            } else {
+                match.salonId = { $in: salonIds };
+            }
+        }
+
         console.log('match:', match);
 
         const result = await this.serviceModel
@@ -86,9 +108,9 @@ export class ServiceService {
                             { $limit: input.limit },
                             lookupAuthMemberLiked(memberId),
                             ...lookupMember,
-                            { $unwind: '$memberData' },
+                            { $unwind: { path: '$memberData', preserveNullAndEmptyArrays: true } },
                             ...lookupSalon,
-                            { $unwind: '$salonData' },
+                            { $unwind: { path: '$salonData', preserveNullAndEmptyArrays: true } },
                         ],
                         metaCounter: [{ $count: 'total' }],
                     },
@@ -135,13 +157,55 @@ export class ServiceService {
                             { $skip: (input.page - 1) * input.limit },
                             { $limit: input.limit },
                             ...lookupSalon,
-                            { $unwind: '$salonData' },
+                            { $unwind: { path: '$salonData', preserveNullAndEmptyArrays: true } },
                         ],
                         metaCounter: [{ $count: 'total' }],
                     },
                 },
             ])
             .exec();
+
+        if (!result.length) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+        return result[0];
+    }
+
+    public async getAllServicesByAdmin(input: AllServicesInquiry): Promise<Services> {
+        const { serviceStatus, typeList } = input.search;
+        const match: T = {};
+        const sort: T = { [input?.sort ?? 'createdAt']: input?.direction ?? Direction.DESC };
+
+        if (serviceStatus) match.serviceStatus = serviceStatus;
+        if (typeList) match.serviceType = { $in: typeList };
+
+        const result = await this.serviceModel
+            .aggregate([
+                { $match: match },
+                { $sort: sort },
+                {
+                    $facet: {
+                        list: [
+                            { $skip: (input.page - 1) * input.limit },
+                            { $limit: input.limit },
+                            ...lookupMember,
+                            // ⚠️ TUZATILDI: avval $unwind moslik topilmasa
+                            // BUTUN hujjatni natijadan olib tashlar edi —
+                            // shuning uchun member/salon topilmagan
+                            // servicelar (yoki barchasi) butunlay
+                            // ko'rinmay qolar edi. preserveNullAndEmptyArrays
+                            // bilan endi hujjat saqlanadi, faqat mos
+                            // maydon bo'sh (null) bo'lib qoladi.
+                            { $unwind: { path: '$memberData', preserveNullAndEmptyArrays: true } },
+                            ...lookupSalon,
+                            { $unwind: { path: '$salonData', preserveNullAndEmptyArrays: true } },
+                        ],
+                        metaCounter: [{ $count: 'total' }],
+                    },
+                },
+            ])
+            .exec();
+
+        if (!result.length) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+        return result[0];
 
         if (!result.length) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
         return result[0];

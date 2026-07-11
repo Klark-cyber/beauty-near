@@ -63,7 +63,13 @@ export class FollowService {
     try {
       return await this.followModel.create(data);
     } catch (err) {
-      console.log('Error, Service.model:', err.message);
+      console.log('Error, Follow.model:', err.message);
+      // ⚠️ TUZATILDI: avval BARCHA xatolar "Create failed" deb
+      // umumlashtirilar edi, bu esa haqiqiy sababni (masalan allaqachon
+      // follow qilingan bo'lishi — unique index xatosi) yashirar edi.
+      if (err.code === 11000) {
+        throw new BadRequestException('You are already following this.');
+      }
       throw new BadRequestException(Message.CREATE_FAILED);
     }
   }
@@ -111,7 +117,10 @@ export class FollowService {
     const { page, limit, search } = input;
     if (!search?.followerId) throw new InternalServerErrorException(Message.BAD_REQUEST);
 
-    const match: T = { followerId: search?.followerId };
+    const match: T = {
+      followerId: shapeIntoMongoObjectId(search.followerId),
+      followingId: { $exists: true, $ne: null },
+    };
 
     const result = await this.followModel
       .aggregate([
@@ -125,7 +134,7 @@ export class FollowService {
               lookupAuthMemberLiked(memberId, '$followingId'),
               lookupAuthMemberFollowed({ followerId: memberId, followingId: '$followingId' }),
               lookupFollowingData,
-              { $unwind: '$followingData' },
+              { $unwind: { path: '$followingData', preserveNullAndEmptyArrays: true } },
             ],
             metaCounter: [{ $count: 'total' }],
           },
@@ -141,7 +150,7 @@ export class FollowService {
     const { page, limit, search } = input;
     if (!search?.followingId) throw new InternalServerErrorException(Message.BAD_REQUEST);
 
-    const match: T = { followingId: search?.followingId };
+    const match: T = { followingId: shapeIntoMongoObjectId(search.followingId) };
 
     const result = await this.followModel
       .aggregate([
@@ -155,7 +164,7 @@ export class FollowService {
               lookupAuthMemberLiked(memberId, '$followerId'),
               lookupAuthMemberFollowed({ followerId: memberId, followingId: '$followerId' }),
               lookupFollowerData,
-              { $unwind: '$followerData' },
+              { $unwind: { path: '$followerData', preserveNullAndEmptyArrays: true } },
             ],
             metaCounter: [{ $count: 'total' }],
           },

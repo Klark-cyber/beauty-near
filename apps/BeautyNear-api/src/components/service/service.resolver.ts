@@ -1,7 +1,7 @@
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { ServiceService } from './service.service';
 import { Service, Services } from '../../libs/dto/service/service';
-import { AgentServicesInquiry, ServiceInput, ServicesInquiry } from '../../libs/dto/service/service.input';
+import { AgentServicesInquiry, AllServicesInquiry, ServiceInput, ServicesInquiry } from '../../libs/dto/service/service.input';
 import { OrdinaryInquiry } from '../../libs/dto/salon/salon.input';
 import { ServiceUpdate } from '../../libs/dto/service/service.update';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -72,6 +72,17 @@ export class ServiceResolver {
 	): Promise<Services> {
 		console.log('Query: getAgentServices');
 		return await this.serviceService.getAgentServices(memberId, input);
+	}
+
+	@Roles(MemberType.ADMIN)
+	@UseGuards(RolesGuard)
+	@Query((returns) => Services)
+	public async getAllServicesByAdmin(
+		@Args('input') input: AllServicesInquiry,
+		@AuthMember('_id') memberId: mongoose.ObjectId,
+	): Promise<Services> {
+		console.log('Query: getAllServicesByAdmin');
+		return await this.serviceService.getAllServicesByAdmin(input);
 	}
 
 	// USER: like bosgan servicelarni oladi

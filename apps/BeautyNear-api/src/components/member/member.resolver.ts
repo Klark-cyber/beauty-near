@@ -58,6 +58,14 @@ export class MemberResolver {
         return await this.memberService.updateMember(memberId, input);
     }
 
+    // ⚠️ YANGI — foydalanuvchi Agent bo'lishni so'raydi
+    @UseGuards(AuthGuard)
+    @Mutation(() => Member)
+    public async requestAgentRole(@AuthMember('_id') memberId: mongoose.ObjectId): Promise<Member> {
+        console.log('Mutation: requestAgentRole');
+        return await this.memberService.requestAgentRole(memberId);
+    }
+
     @UseGuards(WithoutGuard)
     @Query(() => Member)
     public async getMember(
@@ -106,6 +114,27 @@ export class MemberResolver {
     public async updateMemberByAdmin(@Args('input') input: MemberUpdate): Promise<Member> {
         console.log('Mutation: updateMemberByAdmin');
         return await this.memberService.updateMemberbyAdmin(input);
+    }
+
+    // ⚠️ YANGI — Admin: kutilayotgan agent so'rovlari
+    @Roles(MemberType.ADMIN)
+    @UseGuards(RolesGuard)
+    @Query(() => Members)
+    public async getAgentRequests(@Args('input') input: MembersInquiry): Promise<Members> {
+        console.log('Query: getAgentRequests');
+        return await this.memberService.getAgentRequests(input);
+    }
+
+    // ⚠️ YANGI — Admin: so'rovni tasdiqlash/rad etish
+    @Roles(MemberType.ADMIN)
+    @UseGuards(RolesGuard)
+    @Mutation(() => Member)
+    public async processAgentRequest(
+        @Args('memberId') memberId: string,
+        @Args('approve') approve: boolean,
+    ): Promise<Member> {
+        console.log('Mutation: processAgentRequest');
+        return await this.memberService.processAgentRequest(memberId as any, approve);
     }
 
     /* UPLOADER */

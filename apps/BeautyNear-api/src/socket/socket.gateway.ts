@@ -1,26 +1,62 @@
 import { Logger } from '@nestjs/common';
-import { OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import {
+  OnGatewayInit,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+} from '@nestjs/websockets';
 import { Server } from 'ws';
+import * as WebSocket from 'ws';
+import * as url from 'url';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, ObjectId } from 'mongoose';
+import { AuthService } from '../components/auth/auth.service';
+import { Member } from '../libs/dto/member/member';
 import { NotificationGroup, NotificationStatus, NotificationType } from '../libs/enums/notification.enum';
 
 interface AuthenticatedClient extends WebSocket {
-  memberId?: string; // login qilgan userning id si
+  memberId?: string;
 }
 
-@WebSocketGateway({ transports: ['websocket'], secure: false })
-export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+// ── CHAT (Nestar asl mantig'i) ──────────────────────────────────────────────
+interface MessagePayload {
+  event: string;
+  text: string;
+  memberData: Member | null;
+}
+
+interface InfoPayload {
+  event: string;
+  totalClients: number;
+  memberData: Member | null;
+  action: string;
+}
+
+// ⚠️ TUZATILDI: avval bu gateway asosiy server bilan BIR XIL portda
+// ishlar edi — bu esa Apollo'ning GraphQL subscription WebSocket'i
+// (ws://127.0.0.1:3007) bilan to'qnashib, "Invalid message type!"
+// xatosiga sabab bo'lardi (chunki chat xabarlari Apollo'ning
+// subscription clientiga ham yuborilib qolardi). Endi CHAT uchun
+// alohida, mustaqil port ishlatiladi.
+const CHAT_PORT = Number(process.env.PORT_CHAT ?? 3008);
+
+@WebSocketGateway(CHAT_PORT, { transports: ['websocket'], secure: false })
+export class SocketGateway implements OnGatewayInit {
   @WebSocketServer()
   private server: Server;
 
   private logger: Logger = new Logger('SocketGateway');
   private summaryClient: number = 0;
 
-  // memberId → client mapping (bir user bir socket)
+  // ── CHAT uchun holat (Nestar'dagi kabi) ──
+  private clientsAuthMap = new Map<WebSocket, Member | null>();
+  private messagesList: MessagePayload[] = [];
+
+  // ── NOTIFICATION uchun holat (BeautyNear'da qo'shilgan) ──
   private connectedClients: Map<string, AuthenticatedClient> = new Map();
 
   constructor(
+    private readonly authService: AuthService,
     @InjectModel('Notification') private readonly notificationModel: Model<any>,
     @InjectModel('Follow') private readonly followModel: Model<any>,
   ) { }
@@ -29,37 +65,104 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     this.logger.log(`WebSocket Server Initialized`);
   }
 
-  public handleConnection(client: AuthenticatedClient, ...args: any[]) {
-    this.summaryClient++;
-    this.logger.log(`== Client connected total: ${this.summaryClient} ==`);
-  }
-
-  public handleDisconnect(client: AuthenticatedClient) {
-    this.summaryClient--;
-
-    // Map dan o'chiramiz
-    if (client.memberId) {
-      this.connectedClients.delete(client.memberId);
-      this.logger.log(`== Client disconnected: ${client.memberId}, left: ${this.summaryClient} ==`);
+  // Token orqali kim ulanayotganini aniqlash (Nestar asl mantig'i)
+  private async retrieveAuth(req: any): Promise<Member | null> {
+    try {
+      const parseUrl = url.parse(req.url, true);
+      const { token } = parseUrl.query;
+      return await this.authService.verifyToken(token as string);
+    } catch (err) {
+      return null;
     }
   }
 
-  // Frontend ulanib, o'zini tanitadi
-  @SubscribeMessage('identify')
-  public handleIdentify(client: AuthenticatedClient, memberId: string): void {
-    client.memberId = memberId;
-    this.connectedClients.set(memberId, client);
-    this.logger.log(`Client identified: ${memberId}`);
+  public async handleConnection(client: AuthenticatedClient, req: any) {
+    const authMember = await this.retrieveAuth(req);
+    this.summaryClient++;
+
+    const clientNick: string = authMember?.memberNick ?? 'Guest';
+    this.clientsAuthMap.set(client, authMember);
+
+    // ⚠️ TUZATILDI: BeautyNear'ning notification tizimi uchun ham
+    // memberId → client bog'lanishi saqlanadi (Nestar'da bu yo'q edi,
+    // lekin bizga follow/like/booking bildirishnomalari uchun kerak)
+    if (authMember?._id) {
+      client.memberId = authMember._id.toString();
+      this.connectedClients.set(client.memberId, client);
+    }
+
+    this.logger.log(`Connection [${clientNick}] & total: ${this.summaryClient} ==`);
+
+    const infoMsg: InfoPayload = {
+      event: 'info',
+      totalClients: this.summaryClient,
+      memberData: authMember,
+      action: 'joined',
+    };
+    this.emitMessage(infoMsg);
+
+    // Yangi ulangan clientga oxirgi 5 ta xabarni yuboramiz
+    client.send(JSON.stringify({ event: 'getMessages', list: this.messagesList }));
   }
 
+  public handleDisconnect(client: AuthenticatedClient) {
+    const authMember = this.clientsAuthMap.get(client) ?? null;
+    this.summaryClient--;
+
+    this.clientsAuthMap.delete(client);
+    if (client.memberId) {
+      this.connectedClients.delete(client.memberId);
+    }
+
+    const clientNick: string = authMember?.memberNick ?? 'Guest';
+    this.logger.log(`Disconnected [${clientNick}] & total: ${this.summaryClient} ==`);
+
+    const infoMsg: InfoPayload = {
+      event: 'info',
+      totalClients: this.summaryClient,
+      memberData: authMember,
+      action: 'left',
+    };
+    this.broadcastMessage(client, infoMsg);
+  }
+
+  // Ommaviy jonli chat xabari (Nestar asl mantig'i)
   @SubscribeMessage('message')
-  public handleMessage(client: AuthenticatedClient, payload: any): string {
-    return 'Hello from BeautyNear!';
+  public async handleMessage(client: AuthenticatedClient, payload: string): Promise<void> {
+    const authMember = this.clientsAuthMap.get(client) ?? null;
+    const newMessage: MessagePayload = {
+      event: 'message',
+      text: payload,
+      memberData: authMember,
+    };
+    const clientNick: string = authMember?.memberNick ?? 'Guest';
+
+    this.logger.log(`NEW MESSAGE [${clientNick}]: ${payload}`);
+
+    this.messagesList.push(newMessage);
+    if (this.messagesList.length > 5) this.messagesList.splice(0, this.messagesList.length - 5);
+
+    this.emitMessage(newMessage);
   }
 
-  // ── NOTIFICATION YUBORISH ─────────────────────────────────────────────────
+  private broadcastMessage(sender: WebSocket, message: InfoPayload | MessagePayload) {
+    this.server.clients.forEach((client) => {
+      if (client !== sender && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
+      }
+    });
+  }
 
-  // Bitta userga notification yuborish
+  private emitMessage(message: InfoPayload | MessagePayload) {
+    this.server.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
+      }
+    });
+  }
+
+  // ── NOTIFICATION TIZIMI (BeautyNear'da qo'shilgan, o'zgarishsiz qoladi) ────
+
   public async emitNotification(
     receiverId: ObjectId,
     notificationType: NotificationType,
@@ -70,7 +173,6 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     salonId?: ObjectId,
     articleId?: ObjectId,
   ): Promise<void> {
-    // DB ga saqlaymiz
     const notification = await this.notificationModel.create({
       notificationType,
       notificationStatus: NotificationStatus.WAIT,
@@ -83,7 +185,6 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
       articleId: articleId ?? null,
     });
 
-    // Real-time yuboramiz — agar online bo'lsa
     const receiverClient = this.connectedClients.get(receiverId.toString());
     if (receiverClient) {
       receiverClient.send(JSON.stringify({
@@ -101,7 +202,6 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     }
   }
 
-  // Salon followchilariga ommaviy notification (NEW_POST, DISCOUNT, FREE_SLOT)
   public async emitToFollowers(
     salonMemberId: ObjectId,
     notificationType: NotificationType,
@@ -109,7 +209,6 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     notificationDesc?: string,
     salonId?: ObjectId,
   ): Promise<void> {
-    // Salon egasining barcha followchilarini topamiz
     const follows = await this.followModel
       .find({ followingId: salonMemberId })
       .select('followerId')
@@ -119,7 +218,6 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 
     this.logger.log(`Emitting [${notificationType}] to ${follows.length} followers`);
 
-    // Har bir followchiga notification yuboramiz
     await Promise.all(
       follows.map((follow) =>
         this.emitNotification(
@@ -135,9 +233,6 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     );
   }
 
-  // ── TAYYOR METODLAR (boshqa servicelar chaqiradi) ────────────────────────
-
-  // Follow bosilganda
   public async notifyFollow(followerId: ObjectId, followingId: ObjectId): Promise<void> {
     await this.emitNotification(
       followingId,
@@ -149,7 +244,6 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     );
   }
 
-  // Like bosilganda
   public async notifyLike(
     authorId: ObjectId,
     receiverId: ObjectId,
@@ -166,7 +260,6 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     );
   }
 
-  // Booking tasdiqlanganda
   public async notifyBookingConfirmed(memberId: ObjectId, salonTitle: string): Promise<void> {
     await this.emitNotification(
       memberId,
@@ -176,7 +269,6 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     );
   }
 
-  // Booking bekor qilinganda
   public async notifyBookingCancelled(memberId: ObjectId, salonTitle: string): Promise<void> {
     await this.emitNotification(
       memberId,
@@ -186,7 +278,6 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     );
   }
 
-  // Agent yangi xizmat qo'shganda → followchilarga
   public async notifyNewPost(salonMemberId: ObjectId, salonTitle: string, salonId: any): Promise<void> {
     await this.emitToFollowers(
       salonMemberId,
@@ -197,7 +288,6 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     );
   }
 
-  // Agent aksiya e'lon qilganda → followchilarga
   public async notifyDiscount(salonMemberId: ObjectId, salonTitle: string, salonId: any): Promise<void> {
     await this.emitToFollowers(
       salonMemberId,
@@ -208,7 +298,6 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     );
   }
 
-  // Bo'sh vaqt ochilganda → followchilarga
   public async notifyFreeSlot(salonMemberId: ObjectId, salonTitle: string, salonId: any): Promise<void> {
     await this.emitToFollowers(
       salonMemberId,
@@ -219,7 +308,6 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     );
   }
 
-  // Yangi review yozilganda → agent ga
   public async notifyNewReview(agentId: ObjectId, serviceTitle: string): Promise<void> {
     await this.emitNotification(
       agentId,

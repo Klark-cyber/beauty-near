@@ -146,7 +146,7 @@ export class CommentService {
             { $skip: (input.page - 1) * input.limit },
             { $limit: input.limit },
             ...lookupMember,
-            { $unwind: '$memberData' },
+            { $unwind: { path: '$memberData', preserveNullAndEmptyArrays: true } },
           ],
           metaCounter: [{ $count: 'total' }],
         },

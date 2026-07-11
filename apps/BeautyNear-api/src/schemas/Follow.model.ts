@@ -24,8 +24,18 @@ const FollowSchema = new Schema(
 	{ timestamps: true, collection: 'follows' },
 );
 
-FollowSchema.index({ followingId: 1, followerId: 1 }, { unique: true, sparse: true });
-FollowSchema.index({ salonId: 1, followerId: 1 }, { unique: true, sparse: true });
-FollowSchema.index({ serviceId: 1, followerId: 1 }, { unique: true, sparse: true });
+
+FollowSchema.index(
+	{ followingId: 1, followerId: 1 },
+	{ unique: true, partialFilterExpression: { followingId: { $exists: true } } },
+);
+FollowSchema.index(
+	{ salonId: 1, followerId: 1 },
+	{ unique: true, partialFilterExpression: { salonId: { $exists: true } } },
+);
+FollowSchema.index(
+	{ serviceId: 1, followerId: 1 },
+	{ unique: true, partialFilterExpression: { serviceId: { $exists: true } } },
+);
 
 export default FollowSchema;

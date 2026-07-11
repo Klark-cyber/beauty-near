@@ -15,7 +15,9 @@ export class LikeService {
     constructor(@InjectModel('Like') private readonly likeModel: Model<Like>) { }
 
     public async toggleLike(input: LikeInput): Promise<number> {
-        const search: T = { memberId: input.memberId, likeRefId: input.likeRefId };
+        // ⚠️ TUZATILDI: avval likeGroup hisobga olinmagan edi — faqat
+        // memberId+likeRefId bo'yicha tekshirilar edi
+        const search: T = { memberId: input.memberId, likeRefId: input.likeRefId, likeGroup: input.likeGroup };
         const exist = await this.likeModel.findOne(search).exec();
         let modifier = 1;
 
@@ -36,8 +38,8 @@ export class LikeService {
     }
 
     public async checkLikeExistence(input: LikeInput): Promise<MeLiked[]> {
-        const { memberId, likeRefId } = input;
-        const result = await this.likeModel.findOne({ memberId: memberId, likeRefId: likeRefId }).exec();
+        const { memberId, likeRefId, likeGroup } = input;
+        const result = await this.likeModel.findOne({ memberId: memberId, likeRefId: likeRefId, likeGroup: likeGroup }).exec();
         return result ? [{ memberId: memberId, likeRefId: likeRefId, myFavorite: true }] : [];
     }
 
@@ -58,7 +60,7 @@ export class LikeService {
                         as: 'favoriteSalon',
                     },
                 },
-                { $unwind: '$favoriteSalon' },
+                { $unwind: { path: '$favoriteSalon', preserveNullAndEmptyArrays: true } },
                 {
                     $facet: {
                         list: [
@@ -72,7 +74,7 @@ export class LikeService {
                                     as: 'favoriteSalon.memberData',
                                 },
                             },
-                            { $unwind: '$favoriteSalon.memberData' },
+                            { $unwind: { path: '$favoriteSalon.memberData', preserveNullAndEmptyArrays: true } },
                         ],
                         metaCounter: [{ $count: 'total' }],
                     },
@@ -102,7 +104,7 @@ export class LikeService {
                         as: 'favoriteService',
                     },
                 },
-                { $unwind: '$favoriteService' },
+                { $unwind: { path: '$favoriteService', preserveNullAndEmptyArrays: true } },
                 {
                     $facet: {
                         list: [
@@ -116,7 +118,7 @@ export class LikeService {
                                     as: 'favoriteService.memberData',
                                 },
                             },
-                            { $unwind: '$favoriteService.memberData' },
+                            { $unwind: { path: '$favoriteService.memberData', preserveNullAndEmptyArrays: true } },
                             {
                                 $lookup: {
                                     from: 'salons',
@@ -125,7 +127,7 @@ export class LikeService {
                                     as: 'favoriteService.salonData',
                                 },
                             },
-                            { $unwind: '$favoriteService.salonData' },
+                            { $unwind: { path: '$favoriteService.salonData', preserveNullAndEmptyArrays: true } },
                         ],
                         metaCounter: [{ $count: 'total' }],
                     },

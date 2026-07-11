@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, ObjectId } from 'mongoose';
 import { Member, Members } from '../../libs/dto/member/member';
 import { AgentInquiry, LoginInput, MemberInput, MembersInquiry } from '../../libs/dto/member/member.input';
-import { MemberStatus, MemberType } from '../../libs/enums/member.enum';
+import { AgentRequestStatus, MemberStatus, MemberType } from '../../libs/enums/member.enum';
 import { Direction } from '../../libs/enums/common.enum';
 import { Message } from '../../libs/enums/common.enum';
 import { AuthService } from '../auth/auth.service';
@@ -16,7 +16,7 @@ import { LikeGroup } from '../../libs/enums/like.enum';
 import { LikeInput } from '../../libs/dto/like/like.input';
 import { LikeService } from '../like/like.service';
 import { Follower, Following, MeFollowed } from '../../libs/dto/follow/follow';
-import { lookupAuthMemberLiked } from '../../libs/config';
+import { lookupAuthMemberLiked, lookupAuthMemberFollowed } from '../../libs/config';
 
 @Injectable()
 export class MemberService {
@@ -62,11 +62,66 @@ export class MemberService {
     }
 
     public async updateMember(memberId: ObjectId, input: MemberUpdate): Promise<Member> {
+        // ⚠️ TUZATILDI — JUDA JIDDIY XATO: avval parol o'zgartirilganda
+        // (memberPassword) u HASH QILINMASDAN, oddiy matn holida
+        // saqlanar edi! Natijada keyingi login urinishida bcrypt
+        // solishtiruvi hech qachon mos kelmay, foydalanuvchi (eski ham,
+        // yangi parol bilan ham) butunlay bloklanib qolar edi.
+        if ((input as any).memberPassword) {
+            (input as any).memberPassword = await this.authService.hashPassword((input as any).memberPassword);
+        }
+
         const result = await this.memberModel
             .findOneAndUpdate({ _id: memberId, memberStatus: MemberStatus.ACTIVE }, input, { new: true })
             .exec();
         if (!result) throw new InternalServerErrorException(Message.UPDATE_FAILED);
         result.accessToken = await this.authService.createToken(result);
+        return result;
+    }
+
+    // ⚠️ YANGI — foydalanuvchi Agent bo'lishni so'raydi
+    public async requestAgentRole(memberId: ObjectId): Promise<Member> {
+        const result = await this.memberModel
+            .findOneAndUpdate(
+                { _id: memberId, memberType: MemberType.USER },
+                { agentRequestStatus: AgentRequestStatus.PENDING },
+                { new: true },
+            )
+            .exec();
+        if (!result) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+        return result;
+    }
+
+    // ⚠️ YANGI — Admin: kutilayotgan barcha agent so'rovlari ro'yxati
+    public async getAgentRequests(input: MembersInquiry): Promise<Members> {
+        const match: T = { agentRequestStatus: AgentRequestStatus.PENDING };
+        const sort: T = { [input?.sort ?? 'createdAt']: input?.direction ?? Direction.DESC };
+
+        const result = await this.memberModel
+            .aggregate([
+                { $match: match },
+                { $sort: sort },
+                {
+                    $facet: {
+                        list: [{ $skip: (input.page - 1) * input.limit }, { $limit: input.limit }],
+                        metaCounter: [{ $count: 'total' }],
+                    },
+                },
+            ])
+            .exec();
+
+        if (!result.length) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+        return result[0];
+    }
+
+    // ⚠️ YANGI — Admin: so'rovni tasdiqlash yoki rad etish
+    public async processAgentRequest(memberId: ObjectId, approve: boolean): Promise<Member> {
+        const update: T = approve
+            ? { memberType: MemberType.AGENT, agentRequestStatus: AgentRequestStatus.APPROVED }
+            : { agentRequestStatus: AgentRequestStatus.REJECTED };
+
+        const result = await this.memberModel.findOneAndUpdate({ _id: memberId }, update, { new: true }).exec();
+        if (!result) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
         return result;
     }
 
@@ -135,6 +190,12 @@ export class MemberService {
                             { $skip: (input.page - 1) * input.limit },
                             { $limit: input.limit },
                             lookupAuthMemberLiked(memberId),
+                            // ⚠️ TUZATILDI: avval meFollowed hisoblanmagan
+                            // edi — "Follow" tugmasi doim "Follow" (hech
+                            // qachon "Following") ko'rsatib, takroriy
+                            // urinishda "Create failed" xatosiga sabab
+                            // bo'lardi.
+                            lookupAuthMemberFollowed({ followerId: memberId, followingId: '$_id' }),
                         ],
                         metaCounter: [{ $count: 'total' }],
                     },

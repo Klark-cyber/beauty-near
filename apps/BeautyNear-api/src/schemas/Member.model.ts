@@ -1,5 +1,5 @@
 import { Schema } from 'mongoose';
-import { MemberAuthType, MemberStatus, MemberType } from '../libs/enums/member.enum';
+import { AgentRequestStatus, MemberAuthType, MemberStatus, MemberType } from '../libs/enums/member.enum';
 
 const MemberSchema = new Schema(
     {
@@ -13,6 +13,13 @@ const MemberSchema = new Schema(
             type: String,
             enum: MemberStatus,
             default: MemberStatus.ACTIVE,
+        },
+
+        // ⚠️ YANGI — foydalanuvchi Agent bo'lishni so'raganda ishlatiladi
+        agentRequestStatus: {
+            type: String,
+            enum: AgentRequestStatus,
+            default: AgentRequestStatus.NONE,
         },
 
         memberAuthType: {
