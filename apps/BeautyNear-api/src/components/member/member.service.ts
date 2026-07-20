@@ -15,6 +15,8 @@ import { ViewGroup } from '../../libs/enums/view.enum';
 import { LikeGroup } from '../../libs/enums/like.enum';
 import { LikeInput } from '../../libs/dto/like/like.input';
 import { LikeService } from '../like/like.service';
+import { SocketGateway } from '../../socket/socket.gateway'; // ⚠️ YANGI
+import { NotificationGroup } from '../../libs/enums/notification.enum'; // ⚠️ YANGI
 import { Follower, Following, MeFollowed } from '../../libs/dto/follow/follow';
 import { lookupAuthMemberLiked, lookupAuthMemberFollowed } from '../../libs/config';
 
@@ -26,6 +28,7 @@ export class MemberService {
         private readonly authService: AuthService,
         private readonly viewService: ViewService,
         private readonly likeService: LikeService,
+        private readonly socketGateway: SocketGateway, // ⚠️ YANGI — notification uchun
     ) { }
 
     public async signup(input: MemberInput): Promise<Member> {
@@ -89,6 +92,10 @@ export class MemberService {
             )
             .exec();
         if (!result) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+
+        // ⚠️ YANGI — barcha adminlarga xabar
+        await this.socketGateway.notifyNewAgentRequest(memberId, result.memberNick);
+
         return result;
     }
 
@@ -122,6 +129,12 @@ export class MemberService {
 
         const result = await this.memberModel.findOneAndUpdate({ _id: memberId }, update, { new: true }).exec();
         if (!result) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+
+        // ⚠️ YANGI — faqat tasdiqlanganda foydalanuvchining o'ziga xabar
+        if (approve) {
+            await this.socketGateway.notifyAgentApproved(memberId);
+        }
+
         return result;
     }
 
@@ -150,7 +163,11 @@ export class MemberService {
             }
 
             // meLiked
-            const likeInput = { memberId: memberId, likeRefId: targetId, likeGroup: LikeGroup.SALON };
+            // ⚠️ TUZATILDI: avval LikeGroup.SALON edi (xato) — likeTargetMember
+            // endi LikeGroup.MEMBER bilan saqlaydi, shuning uchun bu YERDAGI
+            // tekshiruv HAM mos kelishi kerak edi (aks holda like bosilgandan
+            // keyin ham yurakcha "liked" holatini ko'rsatmasdi)
+            const likeInput = { memberId: memberId, likeRefId: targetId, likeGroup: LikeGroup.MEMBER };
             targetMember.meLiked = (await this.likeService.checkLikeExistence(likeInput)) as any;
 
             // meFollowed
@@ -217,13 +234,23 @@ export class MemberService {
         const input: LikeInput = {
             memberId: memberId,
             likeRefId: likeRefId,
-            likeGroup: LikeGroup.SALON,
+            likeGroup: LikeGroup.MEMBER, // ⚠️ TUZATILDI: avval xato SALON edi
         };
 
         const modifier: number = await this.likeService.toggleLike(input);
         const result = await this.memberStatsEditor({ _id: likeRefId, targetKey: 'memberLikes', modifier: modifier });
 
         if (!result) throw new InternalServerErrorException(Message.SOMETHING_WENT_WRONG);
+
+        // ⚠️ YANGI — avval umuman notification yuborilmasdi. Faqat YANGI
+        // like bosilganda (unlike'da emas), o'ziga o'zi like bosmasa
+        if (modifier === 1 && likeRefId.toString() !== memberId.toString()) {
+            await this.socketGateway.notifyLike(memberId, likeRefId, NotificationGroup.MEMBER, 'liked your profile');
+        } else if (modifier === -1 && likeRefId.toString() !== memberId.toString()) {
+            // ⚠️ YANGI — unlike qilinganda avvalgi bildirishnoma ham o'chadi
+            await this.socketGateway.deleteLikeNotification(memberId, likeRefId as any);
+        }
+
         return result;
     }
 
@@ -258,6 +285,13 @@ export class MemberService {
     public async updateMemberbyAdmin(input: MemberUpdate): Promise<Member> {
         const result = await this.memberModel.findOneAndUpdate({ _id: input._id }, input, { new: true }).exec();
         if (!result) throw new InternalServerErrorException(Message.UPDATE_FAILED);
+
+        // ⚠️ YANGI — agar admin hisobni to'xtatgan/bloklagan bo'lsa (PAUSE
+        // yoki DELETE holatiga o'tkazgan bo'lsa), o'sha a'zoning o'ziga xabar
+        if (input.memberStatus === MemberStatus.PAUSE || input.memberStatus === MemberStatus.DELETE) {
+            await this.socketGateway.notifyAccountSuspended(input._id as any);
+        }
+
         return result;
     }
 

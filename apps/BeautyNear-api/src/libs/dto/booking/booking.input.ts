@@ -42,6 +42,16 @@ class BISearch {
     @IsOptional()
     @Field(() => BookingStatus, { nullable: true })
     bookingStatus?: BookingStatus;
+
+    // ⚠️ YANGI — mijozning shu salondagi bronlarini olish uchun
+    @IsOptional()
+    @Field(() => String, { nullable: true })
+    salonId?: string;
+
+    // ⚠️ YANGI — mijozning shu xizmatga tegishli bronlarini olish uchun
+    @IsOptional()
+    @Field(() => String, { nullable: true })
+    serviceId?: string;
 }
 
 @InputType()

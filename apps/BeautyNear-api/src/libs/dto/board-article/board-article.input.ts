@@ -16,8 +16,10 @@ export class BoardArticleInput {
 	@Field(() => String)
 	articleTitle: string;
 
+	// ⚠️ TUZATILDI: avval 250 belgi bilan cheklangan edi — bu haqiqiy
+	// maqola matni uchun juda kam, "Bad Request" xatosiga sabab bo'lardi
 	@IsNotEmpty()
-	@Length(3, 250)
+	@Length(3, 5000)
 	@Field(() => String)
 	articleContent: string;
 

@@ -18,8 +18,9 @@ export class BoardArticleUpdate {
 	@Field(() => String, { nullable: true })
 	articleTitle?: string;
 
+	// ⚠️ TUZATILDI: xuddi shu 250 belgi cheklovi bu yerda ham bor edi
 	@IsOptional()
-	@Length(3, 250)
+	@Length(3, 5000)
 	@Field(() => String, { nullable: true })
 	articleContent?: string;
 

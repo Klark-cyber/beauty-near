@@ -20,6 +20,11 @@ export class CommentInput {
 	@Field(() => String)
 	commentRefId: mongoose.ObjectId;
 
+	// ⚠️ YANGI — 1 dan 5 gacha baho
+	@IsOptional()
+	@Field(() => Int, { nullable: true })
+	commentRating?: number;
+
 	memberId?: mongoose.ObjectId;
 }
 
@@ -28,6 +33,11 @@ class CISearch {
 	@IsNotEmpty()
 	@Field(() => String)
 	commentRefId: mongoose.ObjectId;
+
+	// ⚠️ YANGI — guruh bo'yicha filtrlash (SALON/SERVICE/ARTICLE)
+	@IsOptional()
+	@Field(() => CommentGroup, { nullable: true })
+	commentGroup?: CommentGroup;
 }
 
 @InputType()

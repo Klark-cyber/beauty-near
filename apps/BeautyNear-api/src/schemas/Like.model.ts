@@ -23,6 +23,12 @@ const LikeSchema = new Schema(
 	{ timestamps: true, collection: 'likes' },
 );
 
-LikeSchema.index({ memberId: 1, likeRefId: 1 }, { unique: true });
+// ⚠️ TUZATILDI: avval faqat {memberId, likeRefId} noyob edi — bu
+// "SALON" guruhidagi eski like yozuvi bilan "MEMBER" guruhidagi yangi
+// like o'rtasida DUPLICATE KEY xatosiga olib kelardi (litsenziya bir
+// xil _id'ga ega bo'lgani uchun), garchi ular semantik jihatdan
+// BOSHQA-BOSHQA narsa (masalan salon like'i va member like'i) bo'lsa
+// ham. Endi likeGroup ham noyoblik shartiga kiritildi.
+LikeSchema.index({ memberId: 1, likeRefId: 1, likeGroup: 1 }, { unique: true });
 
 export default LikeSchema;

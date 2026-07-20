@@ -49,6 +49,10 @@ export class Salon {
     @Field(() => Int)
     salonComments: number;
 
+    // ⚠️ YANGI
+    @Field(() => Number, { nullable: true })
+    salonRating?: number;
+
     @Field(() => Int)
     salonRank: number;
 

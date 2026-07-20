@@ -62,7 +62,11 @@ export class SalonService {
   }
 
   public async getSalon(memberId: ObjectId, salonId: ObjectId): Promise<Salon> {
-    const search: T = { _id: salonId, salonStatus: SalonStatus.ACTIVE };
+    // ⚠️ TUZATILDI: xuddi shu sabab — agent o'zining PAUSE/INACTIVE
+    // salonini tahrirlashga urinsa, faqat ACTIVE cheklovi tufayli forma
+    // bo'sh qolib ketardi.
+    const ownerCheck = memberId ? await this.salonModel.findOne({ _id: salonId, memberId }).lean().exec() : null;
+    const search: T = ownerCheck ? { _id: salonId } : { _id: salonId, salonStatus: SalonStatus.ACTIVE };
 
     const targetSalon = await this.salonModel.findOne(search).lean().exec();
     if (!targetSalon) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
@@ -114,7 +118,13 @@ export class SalonService {
 
   public async updateSalon(memberId: ObjectId, input: SalonUpdate): Promise<Salon> {
     const { salonStatus } = input as any;
-    const search: T = { _id: input._id, memberId: memberId, salonStatus: SalonStatus.ACTIVE };
+    // ⚠️ TUZATILDI: avval faqat "salonStatus: ACTIVE" bo'lgan salonlarni
+    // yangilashga ruxsat berardi — bu esa PAUSED salonni qayta faollashtirish
+    // (Resume) yoki PAUSED/INACTIVE salonni o'chirish (Delete) imkonini
+    // butunlay bloklardi ("UPDATE_FAILED" xatosi shundan kelib chiqardi).
+    // Endi DELETE'dan boshqa istalgan holatdagi salonni yangilash mumkin —
+    // faqat allaqachon o'chirilgan salonni qayta tahrirlash bloklanadi.
+    const search: T = { _id: input._id, memberId: memberId, salonStatus: { $ne: SalonStatus.DELETE } };
 
     if (salonStatus === SalonStatus.DELETE) input.deletedAt = new Date();
 
@@ -302,6 +312,11 @@ export class SalonService {
     return await this.salonModel
       .findByIdAndUpdate(_id, { $inc: { [targetKey]: modifier } }, { new: true })
       .exec();
+  }
+
+  // ⚠️ YANGI — salonRating ni faol sharhlar (commentRating) asosida qayta hisoblash
+  public async updateSalonRating(salonId: ObjectId, avgRating: number): Promise<void> {
+    await this.salonModel.findByIdAndUpdate(salonId, { $set: { salonRating: avgRating } }).exec();
   }
 
   // Agent aksiya e'lon qilganda followchilarga notification

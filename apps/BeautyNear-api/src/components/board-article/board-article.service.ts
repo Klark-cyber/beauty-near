@@ -14,6 +14,8 @@ import { BoardArticleUpdate } from '../../libs/dto/board-article/board-article.u
 import { lookupAuthMemberLiked, lookupMember, shapeIntoMongoObjectId } from '../../libs/config';
 import { LikeInput } from '../../libs/dto/like/like.input';
 import { LikeGroup } from '../../libs/enums/like.enum';
+import { SocketGateway } from '../../socket/socket.gateway'; // ⚠️ YANGI
+import { NotificationGroup } from '../../libs/enums/notification.enum'; // ⚠️ YANGI
 import { LikeService } from '../like/like.service';
 
 @Injectable()
@@ -23,6 +25,7 @@ export class BoardArticleService {
         private readonly memberService: MemberService,
         private readonly viewService: ViewService,
         private readonly likeService: LikeService,
+        private readonly socketGateway: SocketGateway, // ⚠️ YANGI — like notification uchun
     ) { }
 
     public async createBoardArticle(memberId: ObjectId, input: BoardArticleInput): Promise<BoardArticle> {
@@ -142,6 +145,15 @@ export class BoardArticleService {
         const result = await this.boardArticleStatsEditor({ _id: likeRefId, targetKey: 'articleLikes', modifier: modifier });
 
         if (!result) throw new InternalServerErrorException(Message.SOMETHING_WENT_WRONG);
+
+        // ⚠️ YANGI — faqat YANGI like bosilganda, o'ziniki bo'lmasa
+        if (modifier === 1 && target.memberId?.toString() !== memberId.toString()) {
+            await this.socketGateway.notifyLike(memberId, target.memberId, NotificationGroup.ARTICLE, 'liked your article', likeRefId);
+        } else if (modifier === -1 && target.memberId?.toString() !== memberId.toString()) {
+            // ⚠️ YANGI — unlike qilinganda avvalgi bildirishnoma ham o'chadi
+            await this.socketGateway.deleteLikeNotification(memberId, target.memberId);
+        }
+
         return result;
     }
 

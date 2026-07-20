@@ -13,6 +13,7 @@ import { SocketModule } from '../socket/socket.module';
 import { FaqModule } from './faq/faq.module';
 import { NoticeModule } from './notice/notice.module';
 import { InquiryModule } from './inquiry/inquiry.module';
+import { NotificationModule } from './notification/notification.module'; // ⚠️ YANGI
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { InquiryModule } from './inquiry/inquiry.module';
     FaqModule,
     NoticeModule,
     InquiryModule,
+    NotificationModule,
   ],
 })
 export class ComponentsModule { }

@@ -9,6 +9,8 @@ import { AuthModule } from '../auth/auth.module';
 import { MemberModule } from '../member/member.module';
 import { SalonModule } from '../salon/salon.module';
 import { BoardArticleModule } from '../board-article/board-article.module';
+import { LikeModule } from '../like/like.module'; // ⚠️ YANGI — commentga like uchun
+import { SocketModule } from '../../socket/socket.module'; // ⚠️ YANGI — like notification uchun
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { BoardArticleModule } from '../board-article/board-article.module';
     MemberModule,
     SalonModule,
     BoardArticleModule,
+    LikeModule,
+    SocketModule,
   ],
   providers: [CommentResolver, CommentService],
 })

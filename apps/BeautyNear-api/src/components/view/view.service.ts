@@ -44,7 +44,10 @@ export class ViewService {
                         as: 'visitedSalon',
                     },
                 },
-                { $unwind: { path: '$visitedSalon', preserveNullAndEmptyArrays: true } },
+                // ⚠️ TUZATILDI: xuddi shu sabab (Like bilan bir xil) —
+                // o'chirilgan salonga ishora qiluvchi "tashrif" yozuvlari
+                // chiqarib tashlanadi
+                { $unwind: { path: '$visitedSalon', preserveNullAndEmptyArrays: false } },
                 {
                     $facet: {
                         list: [
@@ -88,7 +91,7 @@ export class ViewService {
                         as: 'visitedService',
                     },
                 },
-                { $unwind: { path: '$visitedService', preserveNullAndEmptyArrays: true } },
+                { $unwind: { path: '$visitedService', preserveNullAndEmptyArrays: false } },
                 {
                     $facet: {
                         list: [

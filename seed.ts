@@ -90,6 +90,8 @@ const SALONS = [
     { type: 'SKIN', title: 'Pure Skin Care', addr: 'Jongno-gu, Insadong-gil 5', desc: 'Hydration facials and glass-skin treatments.', phone: '02-512-1006', hours: '10:00-20:00', rank: 4, views: 365, likes: 69 },
     { type: 'MASSAGE', title: 'Serenity Spa', addr: 'Yongsan-gu, Itaewon-ro 120', desc: 'Relaxing aroma & body massage.', phone: '02-512-1007', hours: '12:00-23:00', rank: 3, views: 198, likes: 38 },
     { type: 'HAIR', title: 'Chic Salon Apgujeong', addr: 'Gangnam-gu, Apgujeong-ro 88', desc: 'Luxury hair styling for special days.', phone: '02-512-1008', hours: '10:00-21:00', rank: 4, views: 305, likes: 58 },
+    // ⚠️ YANGI — Featured Clinics bo'limida 5 ta karta to'liq ko'rinishi uchun qo'shildi (avval 4 ta edi)
+    { type: 'SKIN', title: 'Glow Medical Aesthetics', addr: 'Gangnam-gu, Nonhyeon-ro 175', desc: 'Peeling, hydration & brightening glow treatments.', phone: '02-512-1009', hours: '10:00-20:00', rank: 4, views: 355, likes: 66 },
 ];
 
 // Salon turiga qarab service shablonlari

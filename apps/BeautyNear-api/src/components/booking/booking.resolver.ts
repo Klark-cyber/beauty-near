@@ -38,6 +38,15 @@ export class BookingResolver {
         return await this.bookingService.getBooking(memberId, bookingId);
     }
 
+    // ⚠️ YANGI — login talab qilinmaydi (mavjudlikni tekshirish uchun ochiq)
+    @Query(() => [String])
+    public async getBookedSlots(
+        @Args('salonId') salonId: string,
+        @Args('date') date: string,
+    ): Promise<string[]> {
+        return await this.bookingService.getBookedSlots(shapeIntoMongoObjectId(salonId), new Date(date));
+    }
+
     @UseGuards(AuthGuard)
     @Query(() => Bookings)
     public async getMyBookings(

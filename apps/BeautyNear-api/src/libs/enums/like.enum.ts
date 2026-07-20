@@ -5,6 +5,7 @@ export enum LikeGroup {
 	SERVICE = 'SERVICE', // yangi — xizmatga like
 	COMMENT = 'COMMENT', // yangi — izohga like
 	ARTICLE = 'ARTICLE',
+	MEMBER = 'MEMBER',   // ⚠️ YANGI — specialist/foydalanuvchi profiliga like
 }
 registerEnumType(LikeGroup, {
 	name: 'LikeGroup',

@@ -70,6 +70,12 @@ const SalonSchema = new Schema(
             default: 0,
         },
 
+        // ⚠️ YANGI — real sharhlar (commentRating) asosida hisoblangan o'rtacha baho
+        salonRating: {
+            type: Number,
+            default: 0,
+        },
+
         salonRank: {
             type: Number,
             default: 0,

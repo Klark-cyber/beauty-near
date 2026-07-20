@@ -9,7 +9,7 @@ import { BookingUpdate } from '../../libs/dto/booking/booking.update';
 import { BookingStatus, PaymentStatus } from '../../libs/enums/booking.enum';
 import { ServiceService } from '../service/service.service';
 import { T } from '../../libs/types/common';
-import { lookupMember, lookupSalon, lookupService } from '../../libs/config';
+import { lookupMember, lookupSalon, lookupService, shapeIntoMongoObjectId } from '../../libs/config';
 import { SocketGateway } from '../../socket/socket.gateway';
 
 const TOSS_SECRET_KEY = 'test_sk_D5GePWvyJnrK0W0k6q8gLzN97Emo';
@@ -49,25 +49,14 @@ export class BookingService {
     }
 
     private async refundPayment(paymentKey: string, cancelReason: string): Promise<void> {
-        const encodedKey = Buffer.from(`${TOSS_SECRET_KEY}:`).toString('base64');
-
-        const response = await fetch(`${TOSS_API_URL}/${paymentKey}/cancel`, {
-            method: 'POST',
-            headers: {
-                Authorization: `Basic ${encodedKey}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ cancelReason }),
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            console.log('TossPayments refund error:', error);
-            throw new BadRequestException(`Refund failed: ${error.message}`);
-        }
-
-        const data = await response.json();
-        console.log('TossPayments refund success:', data.paymentKey, data.cancels);
+        // ⚠️ TUZATILDI: bu — demo/portfolio loyihasi, barcha bookinglar
+        // SOXTA (test_pay_...) paymentKey bilan yaratiladi. Haqiqiy
+        // TossPayments API'siga so'rov yuborilsa, bu kalit tizimda mavjud
+        // bo'lmagani uchun HAR DOIM Koreys tilidagi xato qaytarardi.
+        // Shuning uchun bu yerda haqiqiy API chaqirilmaydi — faqat
+        // "muvaffaqiyatli qaytarilgandek" jurnalga yoziladi (mock).
+        console.log(`[MOCK REFUND] paymentKey=${paymentKey}, reason=${cancelReason} — haqiqiy TossPayments so'rovi YUBORILMADI (demo loyiha).`);
+        return;
     }
 
     // ── BOOKING CRUD ──────────────────────────────────────────────────────────
@@ -93,6 +82,13 @@ export class BookingService {
                 bookingStatus: BookingStatus.PENDING,
                 paymentStatus: PaymentStatus.PAID,
             });
+
+            // ⚠️ YANGI — Agentga (salon egasiga) yangi bron haqida xabar
+            const salon: any = await this.salonModel.findById(input.salonId).select('memberId salonTitle').lean().exec();
+            if (salon?.memberId) {
+                await this.socketGateway.notifyNewBooking(salon.memberId, input.memberId as any, salon.salonTitle, input.salonId as any);
+            }
+
             return result;
         } catch (err) {
             console.log('Error, Booking.model:', err.message);
@@ -119,12 +115,35 @@ export class BookingService {
         return result[0];
     }
 
+    // ⚠️ YANGI — xavfsiz, ochiq so'rov: berilgan salon+sana uchun BAND
+    // qilingan vaqtlarni qaytaradi (HAMMA mijozlar bo'yicha, faqat
+    // vaqt qatorlari — hech qanday shaxsiy ma'lumot oshkor qilinmaydi)
+    public async getBookedSlots(salonId: ObjectId, date: Date): Promise<string[]> {
+        const dayStart = new Date(date);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(date);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        const bookings = await this.bookingModel
+            .find({
+                salonId: shapeIntoMongoObjectId(salonId),
+                bookingDate: { $gte: dayStart, $lte: dayEnd },
+                bookingStatus: { $ne: BookingStatus.CANCELLED },
+            })
+            .select('bookingTime')
+            .exec();
+
+        return bookings.map((b) => b.bookingTime);
+    }
+
     public async getMyBookings(memberId: ObjectId, input: BookingsInquiry): Promise<Bookings> {
-        const { bookingStatus } = input.search;
+        const { bookingStatus, salonId, serviceId } = input.search;
         const match: T = { memberId: memberId };
         const sort: T = { [input?.sort ?? 'createdAt']: input?.direction ?? Direction.DESC };
 
         if (bookingStatus) match.bookingStatus = bookingStatus;
+        if (salonId) match.salonId = shapeIntoMongoObjectId(salonId);
+        if (serviceId) match.serviceId = shapeIntoMongoObjectId(serviceId);
 
         const result = await this.bookingModel
             .aggregate([
@@ -235,7 +254,12 @@ export class BookingService {
         const sort: T = { [input?.sort ?? 'createdAt']: input?.direction ?? Direction.DESC };
 
         if (bookingStatus) match.bookingStatus = bookingStatus;
-        if (salonId) match.salonId = salonId;
+        // ⚠️ TUZATILDI: salonId GraphQL'dan STRING sifatida keladi, lekin
+        // bazada ObjectId sifatida saqlanadi — bu ikkisi hech qachon mos
+        // kelmasdi, shuning uchun BIRON BIR salon tanlanganda "No bookings
+        // found" chiqardi (faqat "All Salons" holatida, filtr yo'qligida,
+        // to'g'ri natija chiqardi).
+        if (salonId) match.salonId = shapeIntoMongoObjectId(salonId);
 
         const result = await this.bookingModel
             .aggregate([
@@ -324,6 +348,25 @@ export class BookingService {
                             { $unwind: { path: '$salonData', preserveNullAndEmptyArrays: true } },
                             ...lookupService,
                             { $unwind: { path: '$serviceData', preserveNullAndEmptyArrays: true } },
+                            // ⚠️ YANGI — ba'zi eski bronlarda salonId to'g'ridan-to'g'ri
+                            // topilmasligi mumkin edi (masalan salon keyinchalik
+                            // o'chirilgan yoki eski ID formatida saqlangan bo'lsa).
+                            // Bunday holatda, xizmat (service) orqali BOG'LIQ
+                            // salonni zaxira sifatida qidiramiz.
+                            {
+                                $lookup: {
+                                    from: 'salons',
+                                    localField: 'serviceData.salonId',
+                                    foreignField: '_id',
+                                    as: 'fallbackSalonData',
+                                },
+                            },
+                            { $unwind: { path: '$fallbackSalonData', preserveNullAndEmptyArrays: true } },
+                            {
+                                $addFields: {
+                                    salonData: { $ifNull: ['$salonData', '$fallbackSalonData'] },
+                                },
+                            },
                         ],
                         metaCounter: [{ $count: 'total' }],
                     },

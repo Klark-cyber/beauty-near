@@ -37,7 +37,14 @@ export class ServiceService {
     }
 
     public async getService(memberId: ObjectId | null, serviceId: ObjectId): Promise<Service> {
-        const search: T = { _id: serviceId, serviceStatus: ServiceStatus.ACTIVE };
+        // ⚠️ TUZATILDI: avval FAQAT "ACTIVE" xizmatlarni qaytarardi — bu
+        // to'g'ri (mijozlar faqat faol xizmatlarni ko'rishi kerak), LEKIN
+        // agent o'zining INACTIVE xizmatini TAHRIRLAMOQCHI bo'lganda ham
+        // shu cheklov ishlab, forma bo'sh qolib ketardi. Endi: agar
+        // so'rovchi shu xizmat EGASI bo'lsa, status qanday bo'lishidan
+        // qat'iy nazar ko'rsatiladi; aks holda faqat ACTIVE.
+        const ownerCheck = memberId ? await this.serviceModel.findOne({ _id: serviceId, memberId }).lean().exec() : null;
+        const search: T = ownerCheck ? { _id: serviceId } : { _id: serviceId, serviceStatus: ServiceStatus.ACTIVE };
 
         const targetService = await this.serviceModel.findOne(search).lean().exec();
         if (!targetService) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
@@ -60,7 +67,10 @@ export class ServiceService {
 
     public async updateService(memberId: ObjectId, input: ServiceUpdate): Promise<Service> {
         const { serviceStatus } = input as any;
-        const search: T = { _id: input._id, memberId: memberId, serviceStatus: ServiceStatus.ACTIVE };
+        // ⚠️ TUZATILDI: Salon bilan bir xil xato — faqat ACTIVE xizmatlarni
+        // yangilashga ruxsat berardi, INACTIVE xizmatni qayta faollashtirish
+        // yoki o'chirishni bloklardi.
+        const search: T = { _id: input._id, memberId: memberId, serviceStatus: { $ne: ServiceStatus.DELETE } };
 
         if (serviceStatus === ServiceStatus.DELETE) input.deletedAt = new Date();
 

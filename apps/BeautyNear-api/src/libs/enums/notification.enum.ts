@@ -17,6 +17,18 @@ export enum NotificationType {
 
 	// Review
 	NEW_REVIEW = 'NEW_REVIEW',   // Foydalanuvchi review yozdi (agentga)
+
+	// ⚠️ YANGI — Agent uchun
+	NEW_BOOKING = 'NEW_BOOKING',           // Mijoz agentning xizmatini bron qildi
+	ACCOUNT_SUSPENDED = 'ACCOUNT_SUSPENDED', // Admin hisobni to'xtatdi/bloklad
+	AGENT_APPROVED = 'AGENT_APPROVED',     // Admin USER'ni AGENT'ga o'tkazdi
+
+	// ⚠️ YANGI — Admin uchun
+	NEW_INQUIRY = 'NEW_INQUIRY',           // User muammo/savol yubordi
+	NEW_AGENT_REQUEST = 'NEW_AGENT_REQUEST', // User Agent bo'lishni so'radi
+
+	// ⚠️ YANGI — 1-ga-1 chat
+	NEW_MESSAGE = 'NEW_MESSAGE',           // User↔Agent yangi shaxsiy xabar
 }
 registerEnumType(NotificationType, {
 	name: 'NotificationType',

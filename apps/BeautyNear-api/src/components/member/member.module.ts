@@ -8,6 +8,7 @@ import { ViewModule } from '../view/view.module';
 import { LikeModule } from '../like/like.module';
 import { FollowModule } from '../follow/follow.module';
 import FollowSchema from '../../schemas/Follow.model';
+import { SocketModule } from '../../socket/socket.module'; // ⚠️ YANGI
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import FollowSchema from '../../schemas/Follow.model';
     ViewModule,
     LikeModule,
     forwardRef(() => FollowModule),
+    SocketModule,
   ],
   providers: [MemberResolver, MemberService],
   exports: [MemberService],

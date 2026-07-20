@@ -60,7 +60,13 @@ export class LikeService {
                         as: 'favoriteSalon',
                     },
                 },
-                { $unwind: { path: '$favoriteSalon', preserveNullAndEmptyArrays: true } },
+                // ⚠️ TUZATILDI: avval preserveNullAndEmptyArrays: true edi —
+                // agar like bosilgan SALON keyinchalik o'CHIRILGAN bo'lsa,
+                // bu yozuv baribir saqlanib qolar, natijada "favoriteSalon"
+                // null bo'lib, GraphQL'ning majburiy _id maydoni buzilardi.
+                // Endi bunday "yetim" (orphaned) like'lar butunlay chiqarib
+                // tashlanadi (inner-join xatti-harakati).
+                { $unwind: { path: '$favoriteSalon', preserveNullAndEmptyArrays: false } },
                 {
                     $facet: {
                         list: [
@@ -104,7 +110,9 @@ export class LikeService {
                         as: 'favoriteService',
                     },
                 },
-                { $unwind: { path: '$favoriteService', preserveNullAndEmptyArrays: true } },
+                // ⚠️ TUZATILDI: xuddi shu sabab — o'chirilgan service'ga
+                // ishora qiluvchi "yetim" like'lar chiqarib tashlanadi
+                { $unwind: { path: '$favoriteService', preserveNullAndEmptyArrays: false } },
                 {
                     $facet: {
                         list: [

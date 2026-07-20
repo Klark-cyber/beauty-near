@@ -38,6 +38,18 @@ export class CommentResolver {
     return await this.commentService.updateComment(memberId, input);
   }
 
+  // ⚠️ YANGI — bitta izohga like
+  @UseGuards(AuthGuard)
+  @Mutation(() => Comment)
+  public async likeTargetComment(
+    @Args('commentId') input: string,
+    @AuthMember('_id') memberId: mongoose.ObjectId,
+  ): Promise<Comment> {
+    console.log('Mutation: likeTargetComment');
+    const commentId = shapeIntoMongoObjectId(input);
+    return await this.commentService.likeTargetComment(memberId, commentId);
+  }
+
   @UseGuards(WithoutGuard)
   @Query(() => Comments)
   public async getComments(

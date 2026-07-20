@@ -20,6 +20,20 @@ const CommentSchema = new Schema(
 			required: true,
 		},
 
+		// Foydalanuvchi tugallangan bron asosida qoldiradigan baho (1-5)
+		commentRating: {
+			type: Number,
+			min: 1,
+			max: 5,
+			default: 5,
+		},
+
+		// Izohga like sonini saqlash
+		commentLikes: {
+			type: Number,
+			default: 0,
+		},
+
 		commentRefId: {
 			type: Schema.Types.ObjectId,
 			required: true,

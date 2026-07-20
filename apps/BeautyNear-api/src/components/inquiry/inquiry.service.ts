@@ -8,17 +8,21 @@ import { InquiryStatus } from '../../libs/enums/inquiry.enum';
 import { Direction, Message } from '../../libs/enums/common.enum';
 import { T } from '../../libs/types/common';
 import { lookupMember } from '../../libs/config';
+import { SocketGateway } from '../../socket/socket.gateway'; // ⚠️ YANGI
 
 @Injectable()
 export class InquiryService {
 	constructor(
 		@InjectModel('Inquiry') private readonly inquiryModel: Model<Inquiry>,
+		private readonly socketGateway: SocketGateway, // ⚠️ YANGI
 	) { }
 
 	public async createInquiry(memberId: ObjectId, input: InquiryInput): Promise<Inquiry> {
 		input.memberId = memberId;
 		try {
-			return await this.inquiryModel.create(input);
+			const result = await this.inquiryModel.create(input);
+			await this.socketGateway.notifyNewInquiry(memberId, input.inquirySubject); // ⚠️ YANGI
+			return result;
 		} catch (err) {
 			console.log('Error, Inquiry.model:', err.message);
 			throw new BadRequestException(Message.CREATE_FAILED);
