@@ -93,7 +93,19 @@ export class SocketGateway implements OnGatewayInit {
     this.summaryClient--;
 
     this.clientsAuthMap.delete(client);
-    if (client.memberId) {
+    // ⚠️ TUZATILDI: avval "connectedClients.delete(client.memberId)" SHU
+    // memberId uchun xaritada TURGAN ulanish ANIQ shu socketmi yoki yo'qmi
+    // — tekshirmasdan o'chirardi. Bu ilovada bitta foydalanuvchi uchun
+    // bir vaqtning o'zida BIR NECHTA WebSocket ulanishi bo'ladi (Chat.tsx,
+    // bildirishnoma hook'i, Messages sahifasi — har biri o'zining ulanishi).
+    // Ulardan ESKIROG'I uzilganda (masalan Chat.tsx sahifa almashtirilganda
+    // qayta mount bo'lib, eskisi yopilganda), bu YANGI, hali TIRIK
+    // ulanishning xaritadagi yozuvini ham BUTUNLAY o'chirib yuborardi.
+    // Natijada "kim onlayn" xaritasi bo'shab qolardi — real vaqtda xabar/
+    // bildirishnoma HECH KIMGA yuborilmasdi, faqat sahifa yangilanganda
+    // (yangi ulanish ro'yxatdan o'tganda) ishlagandek ko'rinardi. Endi
+    // faqat xaritada ALI HAM shu socketning o'zi turgan bo'lsagina o'chadi.
+    if (client.memberId && this.connectedClients.get(client.memberId) === client) {
       this.connectedClients.delete(client.memberId);
     }
 
@@ -108,7 +120,16 @@ export class SocketGateway implements OnGatewayInit {
   @SubscribeMessage('getMyConversations')
   public async handleGetMyConversations(client: AuthenticatedClient): Promise<void> {
     if (!client.memberId) return;
-    const myObjectId = new mongoose.Types.ObjectId(client.memberId);
+    const results = await this.buildMyConversations(client.memberId);
+    client.send(JSON.stringify({ event: 'myConversations', data: results }));
+  }
+
+  // ⚠️ YANGI — handleGetMyConversations'dagi hisoblash mantig'i bu yerga
+  // ajratib chiqarildi, chunki endi handleGetConversation ham (xabarlar
+  // "o'qildi" deb belgilanganidan KEYIN) xuddi shu HAQIQIY, yangilangan
+  // hisobni qayta yuborishi kerak — pastdagi izohga qarang.
+  private async buildMyConversations(memberId: string): Promise<any[]> {
+    const myObjectId = new mongoose.Types.ObjectId(memberId);
 
     const grouped = await this.messageModel.aggregate([
       { $match: { $or: [{ senderId: myObjectId }, { receiverId: myObjectId }] } },
@@ -147,8 +168,7 @@ export class SocketGateway implements OnGatewayInit {
         unreadCount: g.unreadCount,
       });
     }
-
-    client.send(JSON.stringify({ event: 'myConversations', data: results }));
+    return results;
   }
 
   // Ikki kishi orasidagi mavjud xabar tarixini olish (chat oynasi ochilganda)
@@ -158,17 +178,26 @@ export class SocketGateway implements OnGatewayInit {
     const myId = new mongoose.Types.ObjectId(client.memberId);
     const otherId = new mongoose.Types.ObjectId(payload.withMemberId);
 
-    const list = await this.messageModel
-      .find({
-        $or: [
-          { senderId: myId, receiverId: otherId },
-          { senderId: otherId, receiverId: myId },
-        ],
-      })
-      .sort({ createdAt: 1 })
-      .limit(200)
-      .lean()
-      .exec();
+    // ⚠️ TUZATILDI: avval .sort({createdAt:1}).limit(200) — bu ESKI 200
+    // xabarni olardi (o'sish tartibida saralab, boshidan 200 tasini kesib
+    // olish). Suhbatda 200 tadan ko'p xabar to'plansa, ENG SO'NGGI (yangi)
+    // xabarlar HECH QACHON qaytmasdi — qancha qayta so'ralmasin ham
+    // (notification bosilganda ham). Endi avval ENG YANGI 200 tasi olinadi
+    // (kamayish tartibida saralab), so'ng ekranda to'g'ri xronologik
+    // tartibda ko'rsatish uchun qayta teskari o'giriladi.
+    const list = (
+      await this.messageModel
+        .find({
+          $or: [
+            { senderId: myId, receiverId: otherId },
+            { senderId: otherId, receiverId: myId },
+          ],
+        })
+        .sort({ createdAt: -1 })
+        .limit(200)
+        .lean()
+        .exec()
+    ).reverse();
 
     // Frontend kutgan shaklga moslash (_id, senderId, receiverId, text, createdAt)
     const shaped = list.map((m: any) => ({
@@ -195,6 +224,20 @@ export class SocketGateway implements OnGatewayInit {
     if (unreadFromThisPerson > 0) {
       client.send(JSON.stringify({ event: 'notification_removed', data: { count: unreadFromThisPerson, notificationType: NotificationType.NEW_MESSAGE } }));
     }
+
+    // ⚠️ TUZATILDI: yuqoridagi "notification_removed" — faqat "N tani ayir"
+    // signali edi va faqat SO'ROVNI yuborgan socket'ga tegishli edi. Agar
+    // shu socket keyinroq (masalan bildirishnoma bosilib sahifa
+    // almashtirilgani uchun Chat.tsx qayta mount bo'lganda) yopilib ulgursa,
+    // bu signal umuman qabul qilinmay qolardi — natijada +1 ABADIY
+    // yopishib qolardi, garchi serverda hammasi to'g'ri "o'qildi" deb
+    // belgilangan bo'lsa ham. Endi shu javobning o'zi bilan HAQIQIY,
+    // yangilangan umumiy hisob (myConversations) ham qaytariladi — mijoz
+    // buni "ayirish" emas, to'g'ridan-to'g'ri "shu qiymatga TENGLASH"
+    // sifatida ishlatadi, shuning uchun har qanday poyga holatidan keyin
+    // ham o'z-o'zidan to'g'ri qiymatga qaytadi.
+    const freshConversations = await this.buildMyConversations(client.memberId);
+    client.send(JSON.stringify({ event: 'myConversations', data: freshConversations }));
   }
 
   // Shaxsiy xabar yuborish — FAQAT jo'natuvchi va qabul qiluvchiga boradi
